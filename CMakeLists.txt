@@ -35,8 +35,16 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(dylib)
-# Our Project
 
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY "https://github.com/nlohmann/json"
+    GIT_TAG        "v3.11.2"
+)
+
+FetchContent_MakeAvailable(nlohmann_json)
+
+# Our Project
 include_directories(src)
 
 add_executable(${PROJECT_NAME} ${sources})
@@ -46,6 +54,8 @@ target_link_libraries(${PROJECT_NAME} raylib)
 
 #target_link_libraries(${PROJECT_NAME} AtlantisGame)
 target_link_libraries(${PROJECT_NAME} dylib)
+
+target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
 
 
 # Web Configurations

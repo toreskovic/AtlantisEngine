@@ -5,6 +5,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include "nlohmann/json.hpp"
 
 #include "reflection/reflectionHelpers.h"
 #include "./generated/core.gen.h"
@@ -24,6 +25,72 @@ struct AObject
         static ClassData __classData;
         return __classData;
     };
+
+    template <typename T>
+    T GetProperty(const HName& name)
+    {
+        const ClassData& classData = GetClassData();
+        for (auto& prop: classData.Properties)
+        {
+            if (prop.Name == name)
+            {
+                T* val = reinterpret_cast<T*>((size_t)this + prop.Offset);
+                return *val;
+            }
+        }
+
+        T tmp;
+        return tmp;
+    }
+
+    template <typename T>
+    void SetProperty(const HName& name, T value)
+    {
+        const ClassData& classData = GetClassData();
+        for (auto& prop: classData.Properties)
+        {
+            if (prop.Name == name)
+            {
+                T* val = reinterpret_cast<T*>((size_t)this + prop.Offset);
+                *val = value;
+                break;
+            }
+        }
+    }
+
+    virtual nlohmann::json Serialize()
+    {
+        nlohmann::json json;
+        const auto& classData = GetClassData();
+
+        json["Name"] = classData.Name.Name;
+        json["Properties"] = nlohmann::json::array({});
+        for (const auto& propData: classData.Properties)
+        {
+            if (propData.Type == "float")
+            {
+                json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}, {"Value", GetProperty<float>(propData.Name)}});
+            }
+            else
+            {
+                json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}});
+            }
+        }
+
+        return json;
+    }
+
+    virtual void Deserialize(nlohmann::json& json)
+    {
+        const ClassData& classData = GetClassData();
+        for (auto& prop: json["Properties"])
+        {
+            if (prop["Type"].get<std::string>() == "float")
+            {
+                SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<float>());
+            }
+        }
+    }
 };
 
 struct AEntity;
@@ -80,6 +147,29 @@ struct AEntity : public AObject
     AEntity(const AEntity& other)
     {
 
+    }
+
+    virtual nlohmann::json Serialize() override
+    {
+        nlohmann::json json = AObject::Serialize();
+        json["Components"] = nlohmann::json::array({});
+
+        for (AComponent* comp : Components)
+        {
+            nlohmann::json j = comp->Serialize();
+            json["Components"].push_back(j);
+        }
+
+        return json;
+    }
+
+    virtual void Deserialize(nlohmann::json& json)
+    {
+        for (auto& comp : json["Components"])
+        {
+            AComponent* component = GetComponentOfType(comp["Name"].get<std::string>());
+            component->Deserialize(comp);
+        }
     }
 };
 

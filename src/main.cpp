@@ -26,6 +26,7 @@
 #include "timer.h"
 #include "engine/core.h"
 #include "engine/renderer/renderer.h"
+#include "nlohmann/json.hpp"
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
@@ -49,6 +50,7 @@ void InitDylibTest();
 void DoDylibTest();
 void TryUnloadDylib();
 
+void PreHotReload();
 
 // engine modules
 Registry _registry;
@@ -133,6 +135,8 @@ int main()
     std::cout << d.Properties[0].Offset << std::endl;
     std::cout << d.Properties[1].Offset << std::endl;
 
+    PreHotReload();
+
     // Main game loop
     while (!WindowShouldClose()) // Detect window close button or ESC key
     {
@@ -196,10 +200,35 @@ void TryUnloadDylib()
     }
 }
 
+void PreHotReload()
+{
+    const auto& entities = _registry.GetAllComponentsByName("AEntity");
+
+    nlohmann::json serialized;
+    serialized["entities"] = {};
+    for (auto entity : entities)
+    {
+        serialized["entities"].push_back(entity->Serialize());
+
+        //AEntity* en = static_cast<AEntity*>(entity.get());
+        //en->GetComponentOfType<position>()->SetProperty("x", 0.0f);
+    }
+    
+    std::cout << std::setw(4) << serialized << std::endl;
+}
+
+void PostHotReload()
+{
+
+}
+
 void DoDylibTest()
 {
     HotReloadTimer = []()
     { return false; };
+
+    PreHotReload();
+
     TryUnloadDylib();
 
     // copy lib to temp one
@@ -209,6 +238,8 @@ void DoDylibTest()
 
     // load lib
     LibPtr = new dylib(LibDir, LibTempName, false);
+
+    PostHotReload();
 
     auto printer = LibPtr->get_function<void()>("print_hello");
     printer();

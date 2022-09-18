@@ -34,7 +34,6 @@ LIB_EXPORT void PreHotReload()
 
 LIB_EXPORT void PostHotReload()
 {
-
 }
 
 } // extern "C"

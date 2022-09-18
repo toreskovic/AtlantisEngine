@@ -33,7 +33,12 @@ struct HName
         Hash = std::hash<std::string>{}(name);
     }
 
-    bool operator==(const HName &other)
+    bool operator==(const char* name) const
+    {
+        return Name == name;
+    }
+
+    bool operator==(const HName &other) const
     {
         return Hash == other.Hash;
     }
