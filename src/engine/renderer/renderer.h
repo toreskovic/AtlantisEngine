@@ -60,6 +60,41 @@ struct color : public AComponent
 
     color() {};
     color(const color& other) {};
+
+    // temp hack
+    virtual nlohmann::json Serialize() override
+    {
+        nlohmann::json json;
+        const auto& classData = GetClassData();
+
+        json["Name"] = classData.Name.Name;
+        json["Properties"] = nlohmann::json::array({});
+        for (const auto& propData: classData.Properties)
+        {
+            if (propData.Type == "Color")
+            {
+                json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}, {"Value", ColorToInt(col)}});
+            }
+            else
+            {
+                json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}});
+            }
+        }
+
+        return json;
+    }
+
+    // temp hack
+    virtual void Deserialize(nlohmann::json& json) override
+    {
+        for (auto& prop: json["Properties"])
+        {
+            if (prop["Type"].get<std::string>() == "Color")
+            {
+                col = GetColor(prop["Value"].get<uint>());
+            }
+        }
+    }
 };
 
 class Renderer

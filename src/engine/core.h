@@ -10,6 +10,7 @@
 #include "reflection/reflectionHelpers.h"
 #include "./generated/core.gen.h"
 
+
 struct HNameComparer
 {
     constexpr bool operator()(const HName &lhs, const HName &rhs) const
@@ -178,21 +179,24 @@ struct Registry
     std::map<HName, ClassData, HNameComparer> CData;
 
     std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
-    std::map<HName, std::vector<std::shared_ptr<AObject>>, HNameComparer> ObjectLists;
+    std::map<HName, std::vector<std::unique_ptr<AObject>>, HNameComparer> ObjectLists;
 
-    void RegisterClass(AObject *obj)
+    /*void RegisterClass(AObject *obj)
     {
         ClassData data = obj->GetClassData();
         CData.emplace(data.Name, data);
 
-        CDOs.emplace(data.Name, std::make_unique<AObject>(*obj));
-    }
+        CDOs.emplace(data.Name, std::make_shared<AObject>(*obj));
+    }*/
 
     template <typename T>
     void RegisterDefault()
     {
-        T thing;
-        RegisterClass(&thing);
+        T obj;
+        ClassData data = obj.GetClassData();
+        CData.emplace(data.Name, data);
+
+        CDOs.emplace(data.Name, std::make_unique<T>(obj));
     }
 
     template <typename T>
@@ -202,24 +206,38 @@ struct Registry
     }
 
     template <typename T>
-    T& NewObject(const HName &name)
+    T* NewObject(const HName &name)
     {
         T *CDO = dynamic_cast<T *>(CDOs[name].get());
+        
+        ClassData classData = CDO->GetClassData();
+        T* cpy = (T*) malloc(classData.Size);
+        memcpy (cpy , CDO, classData.Size );
+        
+        std::unique_ptr<AObject> sPtr(cpy);
+        ObjectLists[name].push_back(std::move(sPtr));
 
-        T thing = *CDO;
+        /*T thing = *CDO;
 
-        ObjectLists[name].push_back(std::make_shared<T>(thing));
+        ObjectLists[name].push_back(std::make_shared<T>(thing));*/
 
         auto& vec = ObjectLists[name];
 
-        return dynamic_cast<T&>(*vec[vec.size() - 1].get());
+        return static_cast<T*>(vec[vec.size() - 1].get());
     }
 
-    const std::vector<std::shared_ptr<AObject>>& GetAllComponentsByName(const HName& componentName)
+    const std::vector<std::unique_ptr<AObject>>& GetAllComponentsByName(const HName& componentName)
     {
-        const std::vector<std::shared_ptr<AObject>>& objList = ObjectLists[componentName];
+        const std::vector<std::unique_ptr<AObject>>& objList = ObjectLists[componentName];
 
         return objList;
+    }
+
+    void Clear()
+    {
+        CData.clear();
+        CDOs.clear();
+        ObjectLists.clear();
     }
 };
 

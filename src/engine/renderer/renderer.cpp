@@ -3,10 +3,6 @@
 
 Renderer::Renderer(Registry& registry)
 {
-    registry.RegisterDefault<position>();
-    registry.RegisterDefault<color>();
-    registry.RegisterDefault<velocity>();
-    registry.RegisterDefault<renderable>();
 }
 
 Renderer::~Renderer()

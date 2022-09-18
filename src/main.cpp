@@ -51,10 +51,20 @@ void DoDylibTest();
 void TryUnloadDylib();
 
 void PreHotReload();
+void PostHotReload();
 
 // engine modules
 Registry _registry;
 Renderer _renderer(_registry);
+
+void RegisterTypes()
+{
+    _registry.RegisterDefault<AEntity>();
+    _registry.RegisterDefault<position>();
+    _registry.RegisterDefault<color>();
+    _registry.RegisterDefault<velocity>();
+    _registry.RegisterDefault<renderable>();
+}
 
 //----------------------------------------------------------------------------------
 // Module Functions Declaration
@@ -66,6 +76,8 @@ void UpdateDrawFrame(void); // Update and Draw one frame
 //----------------------------------------------------------------------------------
 int main()
 {
+    RegisterTypes();
+
     FinalLibName = LibDir + DirSlash + dylib::filename_components::prefix + LibName + dylib::filename_components::suffix;
 
     InitDylibTest();
@@ -97,27 +109,25 @@ int main()
             HotReloadTimer = Timer(500);
         });
 
-    _registry.RegisterDefault<AEntity>();
-
     for (int i = 0; i < 100; i++)
     {
         Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
 
-        AEntity& e = _registry.NewObject<AEntity>(HName("AEntity"));
+        AEntity* e = _registry.NewObject<AEntity>(HName("AEntity"));
 
-        position& p = _registry.NewObject<position>(HName("position"));
-        p.x = (float)(rand() % screenWidth);
-        p.y = (float)(rand() % screenHeight);
+        position* p = _registry.NewObject<position>(HName("position"));
+        p->x = (float)(rand() % screenWidth);
+        p->y = (float)(rand() % screenHeight);
 
-        color& c = _registry.NewObject<color>(HName("color"));
-        c.col = cols[rand() % 5];
+        color* c = _registry.NewObject<color>(HName("color"));
+        c->col = cols[rand() % 5];
 
-        renderable& r = _registry.NewObject<renderable>(HName("renderable"));
-        r.renderType = rand() % 2 ? "Rectangle" : "Circle";
+        renderable* r = _registry.NewObject<renderable>(HName("renderable"));
+        r->renderType = rand() % 2 ? "Rectangle" : "Circle";
 
-        e.AddComponent(&p);
-        e.AddComponent(&c);
-        e.AddComponent(&r);
+        e->AddComponent(p);
+        e->AddComponent(c);
+        e->AddComponent(r);
     }
 
     // Initialization
@@ -136,6 +146,7 @@ int main()
     std::cout << d.Properties[1].Offset << std::endl;
 
     PreHotReload();
+    PostHotReload();
 
     // Main game loop
     while (!WindowShouldClose()) // Detect window close button or ESC key
@@ -200,26 +211,43 @@ void TryUnloadDylib()
     }
 }
 
+nlohmann::json _serialized;
+
 void PreHotReload()
 {
     const auto& entities = _registry.GetAllComponentsByName("AEntity");
 
     nlohmann::json serialized;
-    serialized["entities"] = {};
-    for (auto entity : entities)
+    serialized["Entities"] = {};
+    for (auto& entity : entities)
     {
-        serialized["entities"].push_back(entity->Serialize());
-
-        //AEntity* en = static_cast<AEntity*>(entity.get());
-        //en->GetComponentOfType<position>()->SetProperty("x", 0.0f);
+        serialized["Entities"].push_back(entity->Serialize());
     }
     
-    std::cout << std::setw(4) << serialized << std::endl;
+    //std::cout << std::setw(4) << serialized << std::endl;
+    _serialized = serialized;
 }
 
 void PostHotReload()
 {
+    _registry.Clear();
+    RegisterTypes();
 
+    nlohmann::json serialized = _serialized;
+    for (auto& ent : serialized["Entities"])
+    {
+        AEntity* e = _registry.NewObject<AEntity>(HName("AEntity"));
+
+        for (auto& comp : ent["Components"])
+        {
+            AComponent* component = _registry.NewObject<AComponent>(comp["Name"].get<std::string>());
+            component->Deserialize(comp);
+
+            e->AddComponent(component);
+        }
+    }
+    
+    std::cout << "posthotreload" << std::endl;
 }
 
 void DoDylibTest()

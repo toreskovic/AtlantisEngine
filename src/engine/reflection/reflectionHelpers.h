@@ -74,6 +74,7 @@ struct ClassData
     HName Name;
     std::vector<PropertyData> Properties;
     std::vector<MethodData> Methods;
+    size_t Size;
 
     bool IsValid()
     {

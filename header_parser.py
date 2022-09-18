@@ -56,7 +56,8 @@ def class_decl(node):
         static ClassData __classData; \\
         if (__classData.IsValid()) return __classData; \\
             \\
-        __classData.Name = "{class_name}";\\
+        __classData.Name = "{class_name}"; \\
+        __classData.Size = sizeof({class_name}); \\
             \\
         {fields} \\
         return __classData; \\
