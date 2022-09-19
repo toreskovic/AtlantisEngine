@@ -13,76 +13,76 @@
 
 namespace Atlantis
 {
-struct HName
-{
-    std::string Name = "";
-
-    size_t Hash = 0;
-
-    HName()
+    struct HName
     {
-    }
+        std::string Name = "";
 
-    HName(std::string name)
+        size_t Hash = 0;
+
+        HName()
+        {
+        }
+
+        HName(std::string name)
+        {
+            Name = name;
+            Hash = std::hash<std::string>{}(name);
+        }
+
+        HName(const char *name)
+        {
+            Name = name;
+            Hash = std::hash<std::string>{}(name);
+        }
+
+        bool operator==(const char *name) const
+        {
+            return Name == name;
+        }
+
+        bool operator==(const HName &other) const
+        {
+            return Hash == other.Hash;
+        }
+
+        bool operator<(const HName &other) const
+        {
+            return Hash < other.Hash;
+        }
+
+        bool IsValid()
+        {
+            return Hash > 0 && !Name.empty();
+        }
+    };
+
+    struct PropertyData
     {
-        Name = name;
-        Hash = std::hash<std::string>{}(name);
-    }
+        HName Name;
+        HName Type;
+        size_t Offset;
+    };
 
-    HName(const char* name)
+    struct MethodData
     {
-        Name = name;
-        Hash = std::hash<std::string>{}(name);
-    }
+        HName Name;
+        HName ReturnType;
+        std::vector<HName> ParamTypes;
+        // std::function<std::any(void *)> FunctionHelper;
+    };
 
-    bool operator==(const char* name) const
+    struct ClassData
     {
-        return Name == name;
-    }
+        HName Name;
+        std::vector<PropertyData> Properties;
+        std::vector<MethodData> Methods;
+        size_t Size;
 
-    bool operator==(const HName &other) const
-    {
-        return Hash == other.Hash;
-    }
-
-    bool operator<(const HName &other) const
-    {
-        return Hash < other.Hash;
-    }
-
-    bool IsValid()
-    {
-        return Hash > 0 && !Name.empty();
-    }
-};
-
-struct PropertyData
-{
-    HName Name;
-    HName Type;
-    size_t Offset;
-};
-
-struct MethodData
-{
-    HName Name;
-    HName ReturnType;
-    std::vector<HName> ParamTypes;
-    // std::function<std::any(void *)> FunctionHelper;
-};
-
-struct ClassData
-{
-    HName Name;
-    std::vector<PropertyData> Properties;
-    std::vector<MethodData> Methods;
-    size_t Size;
-
-    bool IsValid()
-    {
-        return Name.IsValid();
-    }
-};
+        bool IsValid()
+        {
+            return Name.IsValid();
+        }
+    };
 }
 
 #endif
