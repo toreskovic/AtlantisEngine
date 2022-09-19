@@ -89,7 +89,6 @@ namespace Atlantis
 
         virtual void Deserialize(nlohmann::json &json)
         {
-            const ClassData &classData = GetClassData();
             for (auto &prop : json["Properties"])
             {
                 if (prop["Type"].get<std::string>() == "float")
@@ -173,7 +172,7 @@ namespace Atlantis
             return json;
         }
 
-        virtual void Deserialize(nlohmann::json &json)
+        virtual void Deserialize(nlohmann::json &json) override
         {
             for (auto &comp : json["Components"])
             {

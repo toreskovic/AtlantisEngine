@@ -57,6 +57,7 @@ target_link_libraries(${PROJECT_NAME} dylib)
 
 target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
 
+target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof -Wno-dynamic-class-memaccess)
 
 # Web Configurations
 if (${PLATFORM} STREQUAL "Web")
@@ -83,4 +84,4 @@ add_dependencies(AtlantisEngine ParseHeaders)
 add_dependencies(AtlantisGame AtlantisEngine)
 
 # temp to get rid of warnings
-add_definitions(-w)
+#add_definitions(-w)
