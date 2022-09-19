@@ -11,6 +11,8 @@
 
 #define DEF_PROPERTY()
 
+namespace Atlantis
+{
 struct HName
 {
     std::string Name = "";
@@ -81,5 +83,6 @@ struct ClassData
         return Name.IsValid();
     }
 };
+}
 
 #endif

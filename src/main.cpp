@@ -30,6 +30,8 @@
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
+using namespace Atlantis;
+
 int screenWidth = 800;
 int screenHeight = 450;
 
@@ -86,26 +88,6 @@ int main()
         FinalLibName,
         [](const std::string &path, const filewatch::Event change_type)
         {
-            std::cout << path << " : ";
-            switch (change_type)
-            {
-            case filewatch::Event::added:
-                std::cout << "The file was added to the directory." << '\n';
-                break;
-            case filewatch::Event::removed:
-                std::cout << "The file was removed from the directory." << '\n';
-                break;
-            case filewatch::Event::modified:
-                std::cout << "The file was modified. This can be a change in the time stamp or attributes." << '\n';
-                break;
-            case filewatch::Event::renamed_old:
-                std::cout << "The file was renamed and this is the old name." << '\n';
-                break;
-            case filewatch::Event::renamed_new:
-                std::cout << "The file was renamed and this is the new name." << '\n';
-                break;
-            };
-
             HotReloadTimer = Timer(500);
         });
 

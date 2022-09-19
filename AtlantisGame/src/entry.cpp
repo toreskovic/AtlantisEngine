@@ -8,6 +8,8 @@
 #define LIB_EXPORT
 #endif
 
+using namespace Atlantis;
+
 Registry* ObjRegistry = nullptr;
 
 extern "C" {

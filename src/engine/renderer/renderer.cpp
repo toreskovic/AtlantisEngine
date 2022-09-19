@@ -1,6 +1,8 @@
 #include "renderer.h"
 
 
+namespace Atlantis
+{
 Renderer::Renderer(Registry& registry)
 {
 }
@@ -28,4 +30,5 @@ void Renderer::Render(Registry& registry)
         else if (ren->renderType == "Circle")
             DrawCircle(pos->x, pos->y, 50, col->col);
     }
+}
 }

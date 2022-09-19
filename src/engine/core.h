@@ -1,5 +1,5 @@
-#ifndef CORE_H
-#define CORE_H
+#ifndef ACORE_H
+#define ACORE_H
 
 #include <vector>
 #include <functional>
@@ -8,8 +8,12 @@
 #include "nlohmann/json.hpp"
 
 #include "reflection/reflectionHelpers.h"
+#include "baseTypeSerialization.h"
 #include "./generated/core.gen.h"
 
+
+namespace Atlantis
+{
 
 struct HNameComparer
 {
@@ -72,6 +76,10 @@ struct AObject
             {
                 json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}, {"Value", GetProperty<float>(propData.Name)}});
             }
+            else if (propData.Type == "Color")
+            {
+                json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}, {"Value", GetProperty<Color>(propData.Name)}});
+            }
             else
             {
                 json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}});
@@ -89,6 +97,10 @@ struct AObject
             if (prop["Type"].get<std::string>() == "float")
             {
                 SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<float>());
+            }
+            if (prop["Type"].get<std::string>() == "Color")
+            {
+                SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<Color>());
             }
         }
     }
@@ -240,5 +252,6 @@ struct Registry
         ObjectLists.clear();
     }
 };
+}
 
 #endif
