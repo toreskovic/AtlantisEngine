@@ -183,7 +183,7 @@ namespace Atlantis
 
             ClassData classData = CDO->GetClassData();
             void *cpy = malloc(classData.Size);
-            memcpy(cpy, CDO, classData.Size);
+            memcpy(cpy, (void*)CDO, classData.Size);
 
             T* cpy_T = static_cast<T*>(cpy);
 
