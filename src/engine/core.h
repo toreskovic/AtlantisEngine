@@ -23,14 +23,14 @@ namespace Atlantis
 
     struct AObject
     {
-        virtual const ClassData &GetClassData()
+        virtual const ClassData &GetClassData() const
         {
             static ClassData __classData;
             return __classData;
         };
 
         template <typename T>
-        T GetProperty(const HName &name)
+        T GetProperty(const HName &name) const
         {
             const ClassData &classData = GetClassData();
             for (auto &prop : classData.Properties)
@@ -61,45 +61,9 @@ namespace Atlantis
             }
         }
 
-        virtual nlohmann::json Serialize()
-        {
-            nlohmann::json json;
-            const auto &classData = GetClassData();
+        virtual nlohmann::json Serialize();
 
-            json["Name"] = classData.Name.Name;
-            json["Properties"] = nlohmann::json::array({});
-            for (const auto &propData : classData.Properties)
-            {
-                nlohmann::json propJson = {{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}};
-                if (propData.Type == "float")
-                {
-                    propJson["Value"] = GetProperty<float>(propData.Name);
-                }
-                else if (propData.Type == "Color")
-                {
-                    propJson["Value"] = GetProperty<Color>(propData.Name);
-                }
-                
-                json["Properties"].push_back(propJson);
-            }
-
-            return json;
-        }
-
-        virtual void Deserialize(nlohmann::json &json)
-        {
-            for (auto &prop : json["Properties"])
-            {
-                if (prop["Type"].get<std::string>() == "float")
-                {
-                    SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<float>());
-                }
-                if (prop["Type"].get<std::string>() == "Color")
-                {
-                    SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<Color>());
-                }
-            }
-        }
+        virtual void Deserialize(const nlohmann::json &json);
     };
 
     struct AEntity;
@@ -171,7 +135,7 @@ namespace Atlantis
             return json;
         }
 
-        virtual void Deserialize(nlohmann::json &json) override
+        virtual void Deserialize(const nlohmann::json &json) override
         {
             for (auto &comp : json["Components"])
             {
@@ -185,7 +149,7 @@ namespace Atlantis
     {
         std::map<HName, ClassData, HNameComparer> CData;
 
-        std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
+        static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
         std::map<HName, std::vector<std::unique_ptr<AObject>>, HNameComparer> ObjectLists;
 
         /*void RegisterClass(AObject *obj)
@@ -207,7 +171,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        const T *GetCDO(const HName &name)
+        static const T *GetCDO(const HName &name)
         {
             return dynamic_cast<T *>(CDOs[name].get());
         }
@@ -219,9 +183,11 @@ namespace Atlantis
 
             ClassData classData = CDO->GetClassData();
             void *cpy = malloc(classData.Size);
-            memcpy(cpy, (void*)CDO, classData.Size);
+            memcpy(cpy, CDO, classData.Size);
 
-            std::unique_ptr<AObject> sPtr(static_cast<T*>(cpy));
+            T* cpy_T = static_cast<T*>(cpy);
+
+            std::unique_ptr<AObject> sPtr(cpy_T);
             ObjectLists[name].push_back(std::move(sPtr));
 
             /*T thing = *CDO;
@@ -233,19 +199,9 @@ namespace Atlantis
             return static_cast<T *>(vec[vec.size() - 1].get());
         }
 
-        const std::vector<std::unique_ptr<AObject>> &GetAllComponentsByName(const HName &componentName)
-        {
-            const std::vector<std::unique_ptr<AObject>> &objList = ObjectLists[componentName];
+        const std::vector<std::unique_ptr<AObject>> &GetAllComponentsByName(const HName &componentName);
 
-            return objList;
-        }
-
-        void Clear()
-        {
-            CData.clear();
-            CDOs.clear();
-            ObjectLists.clear();
-        }
+        void Clear();
     };
 }
 

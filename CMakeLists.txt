@@ -57,7 +57,7 @@ target_link_libraries(${PROJECT_NAME} dylib)
 
 target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
 
-target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof)
+target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof -Wno-dynamic-class-memaccess)
 
 # Web Configurations
 if (${PLATFORM} STREQUAL "Web")

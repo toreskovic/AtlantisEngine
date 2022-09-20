@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include <iostream>
 
 namespace Atlantis
 {
@@ -13,6 +14,7 @@ namespace Atlantis
     void Renderer::Render(Registry &registry)
     {
         auto &comps = registry.GetAllComponentsByName(HName("renderable"));
+        //std::cout << "-----------" << std::endl;
         for (auto &comp : comps)
         {
             renderable *ren = static_cast<renderable *>(comp.get());
@@ -23,10 +25,14 @@ namespace Atlantis
 
             position *pos = e->GetComponentOfType<position>();
             color *col = e->GetComponentOfType<color>();
+            
+            //std::cout << ren->renderType << std::endl;
+            static const HName typeRectangle = "Rectangle";
+            static const HName typeCircle = "Circle";
 
-            if (ren->renderType == "Rectangle")
+            if (ren->renderType == typeRectangle)
                 DrawRectangle(pos->x, pos->y, 50, 50, col->col);
-            else if (ren->renderType == "Circle")
+            else if (ren->renderType == typeCircle)
                 DrawCircle(pos->x, pos->y, 50, col->col);
         }
     }

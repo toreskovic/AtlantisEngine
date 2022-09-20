@@ -51,7 +51,7 @@ def class_decl(node):
         #print(fields_data)
         current_file.write(
 """#define __DEF_CLASS_HELPER_L_{line}() \\
-    virtual const ClassData& GetClassData() override \\
+    virtual const ClassData& GetClassData() const override \\
     {{ \\
         static ClassData __classData; \\
         if (__classData.IsValid()) return __classData; \\

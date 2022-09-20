@@ -105,12 +105,24 @@ int main()
         c->col = cols[rand() % 5];
 
         renderable* r = _registry.NewObject<renderable>(HName("renderable"));
-        r->renderType = rand() % 2 ? "Rectangle" : "Circle";
+        //std::cout << r->renderType << std::endl;
+        r->renderType = GetRandomValue(0, 1) ? "Rectangle" : "Circle";
+
+        //std::cout << r->renderType << std::endl;
 
         e->AddComponent(p);
         e->AddComponent(c);
         e->AddComponent(r);
     }
+
+
+    /*auto &comps = _registry.GetAllComponentsByName(HName("renderable"));
+    std::cout << "-----------" << std::endl;
+    for (auto &comp : comps)
+    {
+        renderable *ren = static_cast<renderable *>(comp.get());
+        std::cout << ren->renderType << std::endl;
+    }*/
 
     // Initialization
     //--------------------------------------------------------------------------------------
@@ -216,6 +228,7 @@ void PostHotReload()
     RegisterTypes();
 
     nlohmann::json serialized = _serialized;
+    //std::cout << std::setw(4) << serialized << std::endl;
     for (auto& ent : serialized["Entities"])
     {
         AEntity* e = _registry.NewObject<AEntity>(HName("AEntity"));
