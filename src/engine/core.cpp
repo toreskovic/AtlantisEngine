@@ -58,6 +58,11 @@ namespace Atlantis
     {
         for (auto &prop : json["Properties"])
         {
+            if (prop["IsDefault"])
+            {
+                continue;
+            }
+
             DESERIALIZE_PROP_HELPER(float);
             DESERIALIZE_PROP_HELPER(Color);
             DESERIALIZE_PROP_HELPER(std::string);
