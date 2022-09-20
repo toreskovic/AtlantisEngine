@@ -219,10 +219,10 @@ namespace Atlantis
             T *CDO = dynamic_cast<T *>(CDOs[name].get());
 
             ClassData classData = CDO->GetClassData();
-            T *cpy = (T *)malloc(classData.Size);
-            memcpy(cpy, CDO, classData.Size);
+            void *cpy = malloc(classData.Size);
+            memcpy(cpy, (void*)CDO, classData.Size);
 
-            std::unique_ptr<AObject> sPtr(cpy);
+            std::unique_ptr<AObject> sPtr(static_cast<T*>(cpy));
             ObjectLists[name].push_back(std::move(sPtr));
 
             /*T thing = *CDO;
