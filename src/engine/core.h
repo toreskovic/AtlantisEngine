@@ -70,18 +70,17 @@ namespace Atlantis
             json["Properties"] = nlohmann::json::array({});
             for (const auto &propData : classData.Properties)
             {
+                nlohmann::json propJson = {{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}};
                 if (propData.Type == "float")
                 {
-                    json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}, {"Value", GetProperty<float>(propData.Name)}});
+                    propJson["Value"] = GetProperty<float>(propData.Name);
                 }
                 else if (propData.Type == "Color")
                 {
-                    json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}, {"Value", GetProperty<Color>(propData.Name)}});
+                    propJson["Value"] = GetProperty<Color>(propData.Name);
                 }
-                else
-                {
-                    json["Properties"].push_back({{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}});
-                }
+                
+                json["Properties"].push_back(propJson);
             }
 
             return json;
