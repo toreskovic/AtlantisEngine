@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <map>
+#include <unordered_set>
 #include <memory>
 #include "nlohmann/json.hpp"
 
@@ -179,27 +180,25 @@ namespace Atlantis
         template <typename T>
         T *NewObject(const HName &name)
         {
-            T *CDO = dynamic_cast<T *>(CDOs[name].get());
+            const T *CDO = GetCDO<T>(name);
 
             ClassData classData = CDO->GetClassData();
             void *cpy = malloc(classData.Size);
-            memcpy(cpy, (void*)CDO, classData.Size);
+            memcpy(cpy, (void *)CDO, classData.Size);
 
-            T* cpy_T = static_cast<T*>(cpy);
+            T *cpy_T = static_cast<T *>(cpy);
 
             std::unique_ptr<AObject> sPtr(cpy_T);
             ObjectLists[name].push_back(std::move(sPtr));
-
-            /*T thing = *CDO;
-
-            ObjectLists[name].push_back(std::make_shared<T>(thing));*/
 
             auto &vec = ObjectLists[name];
 
             return static_cast<T *>(vec[vec.size() - 1].get());
         }
 
-        const std::vector<std::unique_ptr<AObject>> &GetAllComponentsByName(const HName &componentName);
+        const std::vector<std::unique_ptr<AObject>> &GetComponentsByName(const HName &componentName);
+
+        const std::unordered_set<AEntity *> GetEntitiesWithComponents(const std::vector<HName> &componentsNames);
 
         void Clear();
     };

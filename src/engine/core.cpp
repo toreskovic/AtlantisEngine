@@ -70,11 +70,58 @@ namespace Atlantis
         }
     }
 
-    const std::vector<std::unique_ptr<AObject>> &Registry::GetAllComponentsByName(const HName &componentName)
+    const std::vector<std::unique_ptr<AObject>> &Registry::GetComponentsByName(const HName &componentName)
     {
         const std::vector<std::unique_ptr<AObject>> &objList = ObjectLists[componentName];
 
         return objList;
+    }
+
+    const std::unordered_set<AEntity*> Registry::GetEntitiesWithComponents(const std::vector<HName> &componentNames)
+    {
+        std::vector<std::unordered_set<AEntity*>> entitySets;
+        entitySets.reserve(componentNames.size());
+
+        const HName entityName("AEntity");
+        auto entityCount = ObjectLists[entityName].size();
+
+        for (const auto &name : componentNames)
+        {
+            std::unordered_set<AEntity*> compEntities;
+            compEntities.reserve(entityCount);
+            const std::vector<std::unique_ptr<AObject>> &components = GetComponentsByName(name);
+
+            for (const auto& obj : components)
+            {
+                AComponent* component = static_cast<AComponent*>(obj.get());
+
+                compEntities.insert(component->Owner);
+            }
+
+            entitySets.push_back(compEntities);
+        }
+
+        std::unordered_set<AEntity*> tmpSet = entitySets[0];
+        std::unordered_set<AEntity*> intersection = tmpSet;
+        intersection.reserve(entityCount);
+        for (int i = 1; i < entitySets.size(); i++)
+        {
+            intersection.clear();
+            intersection.reserve(entityCount);
+
+            // TODO: iterate over intersection instead of the larger set
+            for (AEntity* e : entitySets[i])
+            {
+                if (tmpSet.count(e) > 0)
+                {
+                    intersection.insert(e);
+                }
+            }
+
+            tmpSet = intersection;
+        }
+
+        return intersection;
     }
 
     void Registry::Clear()

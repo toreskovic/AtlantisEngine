@@ -209,7 +209,7 @@ nlohmann::json _serialized;
 
 void PreHotReload()
 {
-    const auto& entities = _registry.GetAllComponentsByName("AEntity");
+    const auto& entities = _registry.GetComponentsByName("AEntity");
 
     nlohmann::json serialized;
     serialized["Entities"] = {};

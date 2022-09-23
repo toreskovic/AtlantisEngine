@@ -13,20 +13,14 @@ namespace Atlantis
 
     void Renderer::Render(Registry &registry)
     {
-        auto &comps = registry.GetAllComponentsByName(HName("renderable"));
-        //std::cout << "-----------" << std::endl;
-        for (auto &comp : comps)
+        static const std::vector<HName> components = {"renderable", "position", "color"};
+        const auto& entities = registry.GetEntitiesWithComponents(components);
+        for (auto* e: entities)
         {
-            renderable *ren = static_cast<renderable *>(comp.get());
-            AEntity *e = ren->Owner;
-
-            // position* pos = dynamic_cast<position*>(e->GetComponentOfType(HName("position")));
-            // color* col = dynamic_cast<color*>(e->GetComponentOfType(HName("color")));
-
+            renderable *ren = e->GetComponentOfType<renderable>();
             position *pos = e->GetComponentOfType<position>();
             color *col = e->GetComponentOfType<color>();
             
-            //std::cout << ren->renderType << std::endl;
             static const HName typeRectangle = "Rectangle";
             static const HName typeCircle = "Circle";
 
