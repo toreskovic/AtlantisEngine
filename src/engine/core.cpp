@@ -1,21 +1,22 @@
 #include "core.h"
 #include "system.h"
 #include <vector>
+#include <iostream>
 
-#define SERIALIZE_PROP_HELPER(type) \
-            if (propData.Type == #type) \
-            { \
-                type prop = GetProperty<type>(propData.Name); \
-                type defProp = cdo->GetProperty<type>(propData.Name); \
-                propJson["Value"] = prop; \
-                propJson["IsDefault"] = Helper_IsEqual(prop, defProp); \
-            }
+#define SERIALIZE_PROP_HELPER(type)                            \
+    if (propData.Type == #type)                                \
+    {                                                          \
+        type prop = GetProperty<type>(propData.Name);          \
+        type defProp = cdo->GetProperty<type>(propData.Name);  \
+        propJson["Value"] = prop;                              \
+        propJson["IsDefault"] = Helper_IsEqual(prop, defProp); \
+    }
 
-#define DESERIALIZE_PROP_HELPER(type) \
-            if (prop["Type"].get<std::string>() == #type) \
-            { \
-                SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<type>()); \
-            }
+#define DESERIALIZE_PROP_HELPER(type)                                            \
+    if (prop["Type"].get<std::string>() == #type)                                \
+    {                                                                            \
+        SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<type>()); \
+    }
 
 namespace Atlantis
 {
@@ -72,28 +73,42 @@ namespace Atlantis
         }
     }
 
-    void Registry::RegisterSystem(System* system, const std::vector<HName> &beforeLabels)
+    void Registry::RegisterSystem(System *system, const std::vector<HName> &beforeLabels)
     {
-        for (int i = 0; i < Systems.size(); i++)
-        {
-            const System *sys = Systems[i];
+        std::unique_ptr<System> systemPtr(system);
 
-            for (const HName& label : beforeLabels)
+        if (beforeLabels.size() > 0)
+        {
+            for (int i = 0; i < Systems.size(); i++)
             {
-                if (sys->Labels.count(label))
+                const System *sys = Systems[i].get();
+
+                for (const HName &label : beforeLabels)
                 {
-                    Systems.insert(Systems.begin() + i, system);
-                    return;
+                    if (sys->Labels.count(label))
+                    {
+                        Systems.insert(Systems.begin() + i, std::move(systemPtr));
+                        return;
+                    }
                 }
             }
         }
 
-        Systems.push_back(system);
+        Systems.push_back(std::move(systemPtr));
+    }
+
+    void Registry::RegisterSystem(std::function<void(Registry *)> lambda, const std::vector<HName> &labels, const std::vector<HName> &beforeLabels)
+    {
+        LambdaSystem* system = new LambdaSystem();
+        system->Lambda = lambda;
+        system->Labels = {labels.begin(), labels.end()};
+
+        RegisterSystem(system, beforeLabels);
     }
 
     void Registry::ProcessSystems()
     {
-        for (System* system : Systems)
+        for (std::unique_ptr<System> &system : Systems)
         {
             system->Process(this);
         }
@@ -106,9 +121,9 @@ namespace Atlantis
         return objList;
     }
 
-    const std::unordered_set<AEntity*> Registry::GetEntitiesWithComponents(const std::vector<HName> &componentNames)
+    const std::unordered_set<AEntity *> Registry::GetEntitiesWithComponents(const std::vector<HName> &componentNames)
     {
-        std::vector<std::unordered_set<AEntity*>> entitySets;
+        std::vector<std::unordered_set<AEntity *>> entitySets;
         entitySets.reserve(componentNames.size());
 
         const HName entityName("AEntity");
@@ -116,13 +131,13 @@ namespace Atlantis
 
         for (const auto &name : componentNames)
         {
-            std::unordered_set<AEntity*> compEntities;
+            std::unordered_set<AEntity *> compEntities;
             compEntities.reserve(entityCount);
             const std::vector<std::unique_ptr<AObject>> &components = GetComponentsByName(name);
 
-            for (const auto& obj : components)
+            for (const auto &obj : components)
             {
-                AComponent* component = static_cast<AComponent*>(obj.get());
+                AComponent *component = static_cast<AComponent *>(obj.get());
 
                 compEntities.insert(component->Owner);
             }
@@ -130,8 +145,8 @@ namespace Atlantis
             entitySets.push_back(compEntities);
         }
 
-        std::unordered_set<AEntity*> tmpSet = entitySets[0];
-        std::unordered_set<AEntity*> intersection = tmpSet;
+        std::unordered_set<AEntity *> tmpSet = entitySets[0];
+        std::unordered_set<AEntity *> intersection = tmpSet;
         intersection.reserve(entityCount);
         for (int i = 1; i < entitySets.size(); i++)
         {
@@ -139,7 +154,7 @@ namespace Atlantis
             intersection.reserve(entityCount);
 
             // TODO: iterate over intersection instead of the larger set
-            for (AEntity* e : entitySets[i])
+            for (AEntity *e : entitySets[i])
             {
                 if (tmpSet.count(e) > 0)
                 {

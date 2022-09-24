@@ -6,4 +6,9 @@ namespace Atlantis
   {
 
   }
+
+  void LambdaSystem::Process(Registry* registry)
+  {
+    Lambda(registry);
+  }
 }

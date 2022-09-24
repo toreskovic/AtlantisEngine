@@ -27,6 +27,7 @@
 #include "engine/core.h"
 #include "engine/renderer/renderer.h"
 #include "nlohmann/json.hpp"
+#include "fmt/core.h"
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
@@ -57,7 +58,7 @@ void PostHotReload();
 
 // engine modules
 Registry _registry;
-Renderer _renderer;
+Renderer* _renderer = new Renderer();
 
 void RegisterTypes()
 {
@@ -70,7 +71,39 @@ void RegisterTypes()
 
 void RegisterSystems()
 {
-    _registry.RegisterSystem(&_renderer);
+    _renderer->Labels.insert("Render");
+    _registry.RegisterSystem(_renderer, {"EndRender"});
+
+    _registry.RegisterSystem([](Registry*) {
+        BeginDrawing();
+        ClearBackground(RAYWHITE);
+    }, {"BeginRender"}, {"Render"});
+
+    _registry.RegisterSystem([](Registry*) {
+        static auto timer = Timer(1000);
+        static float fpsAggregator = 0.0f;
+        static int fpsCounter = 0;
+        static float fps = 0;
+
+        fpsAggregator += 1.0f / GetFrameTime();
+        fpsCounter++;
+        if (timer())
+        {
+            fps = fpsAggregator / fpsCounter;
+
+            fpsAggregator = 0.0f;
+            fpsCounter = 0;
+            timer = Timer(1000);
+        }
+
+        auto fpsStr = fmt::format("FPS: {:.2f}", fps);
+        int fontSize = 20;
+        int textSize = MeasureText(fpsStr.c_str(), fontSize);
+
+        DrawRectangle(0, 0, textSize + 20, fontSize + 20, DARKGRAY);
+        DrawText(fpsStr.c_str(), 10, 10, fontSize, LIGHTGRAY);
+        EndDrawing();
+    }, {"EndRender"});
 }
 
 //----------------------------------------------------------------------------------
@@ -97,7 +130,7 @@ int main()
             HotReloadTimer = Timer(500);
         });
 
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < 1000; i++)
     {
         Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
 
@@ -137,7 +170,7 @@ int main()
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
 #else
-    SetTargetFPS(60); // Set our game to run at 60 frames-per-second
+    //SetTargetFPS(60); // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
     position p;
@@ -181,15 +214,7 @@ void UpdateDrawFrame(void)
 
     // Draw
     //----------------------------------------------------------------------------------
-    BeginDrawing();
-
-    ClearBackground(RAYWHITE);
-
     _registry.ProcessSystems();
-
-    DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
-
-    EndDrawing();
     //----------------------------------------------------------------------------------
 }
 

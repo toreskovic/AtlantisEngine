@@ -3,6 +3,7 @@
 
 #include "engine/reflection/reflectionHelpers.h"
 #include <unordered_set>
+#include <functional>
 
 namespace Atlantis
 {
@@ -23,6 +24,14 @@ namespace Atlantis
 
     virtual void Process(Registry *registry);
   };
+
+  struct LambdaSystem : public System
+  {
+    std::function<void(Registry *)> Lambda;
+
+    virtual void Process(Registry *registry) override;
+  };
+
 } // namespace Atlantis
 
 #endif // !SYSTEM_H

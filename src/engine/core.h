@@ -155,7 +155,7 @@ namespace Atlantis
 
         static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
         std::map<HName, std::vector<std::unique_ptr<AObject>>, HNameComparer> ObjectLists;
-        std::vector<System*> Systems;
+        std::vector<std::unique_ptr<System>> Systems;
 
         /*void RegisterClass(AObject *obj)
         {
@@ -200,7 +200,9 @@ namespace Atlantis
             return static_cast<T *>(vec[vec.size() - 1].get());
         }
 
-        void RegisterSystem(System* system, const std::vector<HName> &beforeLabels = {});
+        void RegisterSystem(System *system, const std::vector<HName> &beforeLabels = {});
+
+        void RegisterSystem(std::function<void(Registry *)> lambda, const std::vector<HName> &labels = {}, const std::vector<HName> &beforeLabels = {});
 
         void ProcessSystems();
 
