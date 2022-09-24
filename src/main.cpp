@@ -41,7 +41,7 @@ int screenHeight = 450;
 dylib *LibPtr = nullptr;
 
 std::string LibName = "AtlantisGame";
-std::string LibDir = "./" + LibName;
+std::string LibDir;
 std::string FinalLibName = "";
 std::string DirSlash = "/";
 
@@ -149,6 +149,8 @@ int main()
 {
     std::ifstream projectFile("./project.aeng");
     std::getline(projectFile, LibName);
+
+    LibDir = "./projects/" + LibName;
 
     RegisterTypes();
     RegisterSystems();
