@@ -39,17 +39,18 @@ namespace Atlantis
         nlohmann::json json;
         const auto &classData = GetClassData();
 
-        json["Name"] = classData.Name.Name;
+        json["Name"] = classData.Name.GetName();
         json["Properties"] = nlohmann::json::array({});
         for (const auto &propData : classData.Properties)
         {
-            nlohmann::json propJson = {{"Name", propData.Name.Name}, {"Type", propData.Type.Name}, {"Offset", propData.Offset}};
+            nlohmann::json propJson = {{"Name", propData.Name.GetName()}, {"Type", propData.Type.GetName()}, {"Offset", propData.Offset}};
             const AObject *cdo = Registry::GetCDO<AObject>(classData.Name);
 
             SERIALIZE_PROP_HELPER(float);
             SERIALIZE_PROP_HELPER(Color);
             SERIALIZE_PROP_HELPER(std::string);
             SERIALIZE_PROP_HELPER(Atlantis::HName);
+            SERIALIZE_PROP_HELPER(Atlantis::ResourceHandle);
 
             json["Properties"].push_back(propJson);
         }
@@ -70,6 +71,7 @@ namespace Atlantis
             DESERIALIZE_PROP_HELPER(Color);
             DESERIALIZE_PROP_HELPER(std::string);
             DESERIALIZE_PROP_HELPER(Atlantis::HName);
+            DESERIALIZE_PROP_HELPER(Atlantis::ResourceHandle);
         }
     }
 

@@ -58,7 +58,7 @@ void PostHotReload();
 
 // engine modules
 Registry _registry;
-Renderer* _renderer = new Renderer();
+Renderer *_renderer = new Renderer();
 
 void RegisterTypes()
 {
@@ -74,12 +74,14 @@ void RegisterSystems()
     _renderer->Labels.insert("Render");
     _registry.RegisterSystem(_renderer, {"EndRender"});
 
-    _registry.RegisterSystem([](Registry*) {
+    _registry.RegisterSystem([](Registry *)
+                             {
         BeginDrawing();
-        ClearBackground(RAYWHITE);
-    }, {"BeginRender"}, {"Render"});
+        ClearBackground(RAYWHITE); },
+                             {"BeginRender"}, {"Render"});
 
-    _registry.RegisterSystem([](Registry*) {
+    _registry.RegisterSystem([](Registry *registry)
+                             {
         static auto timer = Timer(1000);
         static float fpsAggregator = 0.0f;
         static int fpsCounter = 0;
@@ -100,10 +102,41 @@ void RegisterSystems()
         int fontSize = 20;
         int textSize = MeasureText(fpsStr.c_str(), fontSize);
 
-        DrawRectangle(0, 0, textSize + 20, fontSize + 20, DARKGRAY);
+        auto bunnyStr = fmt::format("Bunnies: {}", registry->GetObjectCountByType("AEntity"));
+        textSize = std::max(textSize, MeasureText(bunnyStr.c_str(), fontSize));
+
+        Color bg = DARKGRAY;
+        bg.a = 150;
+
+        DrawRectangle(0, 0, textSize + 30, fontSize * 2 + 30, bg);
         DrawText(fpsStr.c_str(), 10, 10, fontSize, LIGHTGRAY);
-        EndDrawing();
-    }, {"EndRender"});
+        DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY);
+        EndDrawing(); },
+                             {"EndRender"});
+
+    _registry.RegisterSystem([](Registry *registry)
+                             {
+        const auto& entities = registry->GetEntitiesWithComponents({"velocity", "position"});
+
+#pragma omp parallel for default(none) shared(entities)
+        for (size_t b = 0; b < entities.bucket_count(); b++)
+        {
+        for (auto it = entities.begin(b); it != entities.end(b); it++)
+            {
+                AEntity* e = *it;
+                velocity *vel = e->GetComponentOfType<velocity>();
+                position *pos = e->GetComponentOfType<position>();
+
+                pos->x += vel->x * GetFrameTime();
+                pos->y += vel->y * GetFrameTime();
+
+                if (((pos->x + 16) > GetScreenWidth()) ||
+                    ((pos->x + 16) < 0)) vel->x *= -1;
+                if (((pos->y + 16) > GetScreenHeight()) ||
+                    ((pos->y + 16 - 40) < 0)) vel->y *= -1;
+            }
+        } },
+                             {"Physics"}, {"BeginRender"});
 }
 
 //----------------------------------------------------------------------------------
@@ -130,27 +163,45 @@ int main()
             HotReloadTimer = Timer(500);
         });
 
-    for (int i = 0; i < 10000; i++)
+    // Initialization
+    //--------------------------------------------------------------------------------------
+    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+
+    Texture2D bunnyTex = LoadTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png");
+
+    Registry *_reg = &_registry;
+
+    auto createBunny = [&bunnyTex, _reg]()
     {
         Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
 
-        AEntity* e = _registry.NewObject<AEntity>(HName("AEntity"));
+        AEntity *e = _reg->NewObject<AEntity>(HName("AEntity"));
 
-        position* p = _registry.NewObject<position>(HName("position"));
+        position *p = _reg->NewObject<position>(HName("position"));
         p->x = (float)(rand() % screenWidth);
         p->y = (float)(rand() % screenHeight);
 
-        color* c = _registry.NewObject<color>(HName("color"));
+        color *c = _registry.NewObject<color>(HName("color"));
         c->col = cols[rand() % 5];
 
-        renderable* r = _registry.NewObject<renderable>(HName("renderable"));
-        r->renderType = GetRandomValue(0, 1) ? "Rectangle" : "Circle";
+        renderable *r = _reg->NewObject<renderable>(HName("renderable"));
+        // r->renderType = GetRandomValue(0, 1) ? "Rectangle" : "Circle";
+        r->textureHandle = {(size_t)&bunnyTex};
+
+        velocity *v = _reg->NewObject<velocity>("velocity");
+        v->x = GetRandomValue(-250, 250);
+        v->y = GetRandomValue(-250, 250);
 
         e->AddComponent(p);
         e->AddComponent(c);
         e->AddComponent(r);
-    }
+        e->AddComponent(v);
+    };
 
+    for (int i = 0; i < 1; i++)
+    {
+        createBunny();
+    }
 
     /*auto &comps = _registry.GetAllComponentsByName(HName("renderable"));
     std::cout << "-----------" << std::endl;
@@ -160,14 +211,10 @@ int main()
         std::cout << ren->renderType << std::endl;
     }*/
 
-    // Initialization
-    //--------------------------------------------------------------------------------------
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
-
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
 #else
-    //SetTargetFPS(60); // Set our game to run at 60 frames-per-second
+    // SetTargetFPS(60); // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
     position p;
@@ -187,11 +234,20 @@ int main()
         }
 
         UpdateDrawFrame();
+
+        if (GetFrameTime() < 1.0f / 60.0f)
+        {
+            for (int i = 0; i < 100; i++)
+            {
+                createBunny();
+            }
+        }
     }
 #endif
 
     // De-Initialization
     //--------------------------------------------------------------------------------------
+    UnloadTexture(bunnyTex);
     CloseWindow(); // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
 
@@ -237,16 +293,16 @@ nlohmann::json _serialized;
 
 void PreHotReload()
 {
-    const auto& entities = _registry.GetObjectsByName("AEntity");
+    const auto &entities = _registry.GetObjectsByName("AEntity");
 
     nlohmann::json serialized;
     serialized["Entities"] = {};
-    for (auto& entity : entities)
+    for (auto &entity : entities)
     {
         serialized["Entities"].push_back(entity->Serialize());
     }
-    
-    //std::cout << std::setw(4) << serialized << std::endl;
+
+    // std::cout << std::setw(4) << serialized << std::endl;
     _serialized = serialized;
 }
 
@@ -256,20 +312,20 @@ void PostHotReload()
     RegisterTypes();
 
     nlohmann::json serialized = _serialized;
-    //std::cout << std::setw(4) << serialized << std::endl;
-    for (auto& ent : serialized["Entities"])
+    // std::cout << std::setw(4) << serialized << std::endl;
+    for (auto &ent : serialized["Entities"])
     {
-        AEntity* e = _registry.NewObject<AEntity>(HName("AEntity"));
+        AEntity *e = _registry.NewObject<AEntity>(HName("AEntity"));
 
-        for (auto& comp : ent["Components"])
+        for (auto &comp : ent["Components"])
         {
-            AComponent* component = _registry.NewObject<AComponent>(comp["Name"].get<std::string>());
+            AComponent *component = _registry.NewObject<AComponent>(comp["Name"].get<std::string>());
             component->Deserialize(comp);
 
             e->AddComponent(component);
         }
     }
-    
+
     std::cout << "posthotreload" << std::endl;
 }
 

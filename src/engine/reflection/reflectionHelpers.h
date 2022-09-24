@@ -16,7 +16,7 @@ namespace Atlantis
 {
     struct HName
     {
-        std::string Name = "";
+        std::vector<char> Name;
 
         size_t Hash = 0;
 
@@ -26,14 +26,33 @@ namespace Atlantis
 
         HName(std::string name)
         {
-            Name = name;
+            Name = { name.begin(), name.end() };
+
+            if (Name[Name.size() - 1] != 0)
+            {
+                Name.push_back(0);
+            }
+
             Hash = std::hash<std::string>{}(name);
         }
 
         HName(const char *name)
         {
-            Name = name;
+            std::string n = name;
+            Name = { n.begin(), n.end() };
+
+            if (Name[Name.size() - 1] != 0)
+            {
+                Name.push_back(0);
+            }
+
             Hash = std::hash<std::string>{}(name);
+        }
+
+        std::string GetName() const
+        {
+            std::string n = { Name.begin(), Name.end() - 1 };
+            return n;
         }
 
         bool operator==(const char *name) const
@@ -54,7 +73,8 @@ namespace Atlantis
 
         friend std::ostream &operator<<(std::ostream &os, const HName &name)
         {
-            return std::operator<<(os, name.Name);
+            std::string n = { name.Name.begin(), name.Name.end() };
+            return std::operator<<(os, n);
         }
 
         bool IsValid()
@@ -64,8 +84,6 @@ namespace Atlantis
         }
     };
 
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HName, Name, Hash);
-
     class HNameHashFunction
     {
     public:
@@ -74,6 +92,25 @@ namespace Atlantis
             return p.Hash;
         }
     };
+
+    struct ResourceHandle
+    {
+        size_t Address = 0;
+
+        template <typename T>
+        T *get()
+        {
+            void* ptr = (void*)Address;
+            return static_cast<T *>(ptr);
+        }
+
+        bool operator==(const ResourceHandle& other) const
+        {
+            return Address == other.Address;
+        }
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ResourceHandle, Address);
 
     struct PropertyData
     {
@@ -103,5 +140,24 @@ namespace Atlantis
         }
     };
 }
+
+NLOHMANN_JSON_NAMESPACE_BEGIN
+template <>
+struct adl_serializer<Atlantis::HName>
+{
+    static void to_json(json &j, const Atlantis::HName &name)
+    {
+        j = {{"Name", name.GetName()}, {"Hash", name.Hash}};
+    }
+
+    static void from_json(const json &j, Atlantis::HName &name)
+    {
+        std::string s;
+        j.at("Name").get_to(s);
+        
+        name = Atlantis::HName(s);
+    }
+};
+NLOHMANN_JSON_NAMESPACE_END
 
 #endif

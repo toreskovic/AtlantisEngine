@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11) # FetchContent is available in 3.11+
 project(AtlantisEngine)
 
-set(CMAKE_C_STANDARD 20)
+set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
 
 # Generate compile_commands.json
@@ -66,6 +66,11 @@ target_link_libraries(${PROJECT_NAME} dylib)
 target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
 
 target_link_libraries(${PROJECT_NAME} fmt)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(${PROJECT_NAME} OpenMP::OpenMP_CXX)
+endif()
 
 target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof)
 

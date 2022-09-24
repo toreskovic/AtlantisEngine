@@ -139,7 +139,15 @@ namespace Atlantis
 
         bool HasComponentsOfType(const std::vector<HName> &names)
         {
-            return ComponentNames == names;
+            for (int i = 0; i < names.size(); i++)
+            {
+                if (std::find(ComponentNames.begin(), ComponentNames.end(), names[i]) == ComponentNames.end())
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         AEntity(){};
