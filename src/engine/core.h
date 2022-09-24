@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <memory>
 #include "nlohmann/json.hpp"
+#include <algorithm>
 
 #include "reflection/reflectionHelpers.h"
 #include "baseTypeSerialization.h"
@@ -82,6 +83,7 @@ namespace Atlantis
         DEF_CLASS();
 
         std::vector<AComponent *> Components;
+        std::vector<HName> ComponentNames;
 
         AComponent *GetComponentOfType(const HName &name)
         {
@@ -104,7 +106,7 @@ namespace Atlantis
 
             for (auto *comp : Components)
             {
-                if (HName(comp->GetClassData().Name) == name)
+                if (comp->GetClassData().Name == name)
                 {
                     return static_cast<T *>(comp);
                 }
@@ -117,6 +119,27 @@ namespace Atlantis
         {
             component->Owner = this;
             Components.push_back(component);
+
+            ComponentNames.push_back(component->GetClassData().Name);
+            std::sort(ComponentNames.begin(), ComponentNames.end());
+        }
+
+        bool HasComponentOfType(const HName& name)
+        {
+            for (const HName& compName : ComponentNames)
+            {
+                if (compName == name)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool HasComponentsOfType(const std::vector<HName> &names)
+        {
+            return ComponentNames == names;
         }
 
         AEntity(){};
@@ -206,9 +229,11 @@ namespace Atlantis
 
         void ProcessSystems();
 
-        const std::vector<std::unique_ptr<AObject>> &GetComponentsByName(const HName &componentName);
+        const std::vector<std::unique_ptr<AObject>> &GetObjectsByName(const HName &componentName);
 
-        const std::unordered_set<AEntity *> GetEntitiesWithComponents(const std::vector<HName> &componentsNames);
+        const std::unordered_set<AEntity *> GetEntitiesWithComponents(std::vector<HName> componentsNames);
+
+        size_t GetObjectCountByType(const HName& objectName);
 
         void Clear();
     };

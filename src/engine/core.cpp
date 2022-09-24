@@ -114,55 +114,38 @@ namespace Atlantis
         }
     }
 
-    const std::vector<std::unique_ptr<AObject>> &Registry::GetComponentsByName(const HName &componentName)
+    const std::vector<std::unique_ptr<AObject>> &Registry::GetObjectsByName(const HName &componentName)
     {
         const std::vector<std::unique_ptr<AObject>> &objList = ObjectLists[componentName];
 
         return objList;
     }
 
-    const std::unordered_set<AEntity *> Registry::GetEntitiesWithComponents(const std::vector<HName> &componentNames)
+    size_t Registry::GetObjectCountByType(const HName& objectName)
     {
-        std::vector<std::unordered_set<AEntity *>> entitySets;
-        entitySets.reserve(componentNames.size());
+        return GetObjectsByName(objectName).size();
+    }
 
-        const HName entityName("AEntity");
-        auto entityCount = ObjectLists[entityName].size();
+    const std::unordered_set<AEntity *> Registry::GetEntitiesWithComponents(std::vector<HName> componentNames)
+    {
+        std::unordered_set<AEntity *> intersection;
+        const auto& entities = GetObjectsByName("AEntity");
+        intersection.reserve(entities.size());
 
-        for (const auto &name : componentNames)
+        std::sort(componentNames.begin(), componentNames.end());
+
+        // TODO: iterate only over entities for the componentName with the smallest amount of instances
+        for (auto& entityObj : entities)
         {
-            std::unordered_set<AEntity *> compEntities;
-            compEntities.reserve(entityCount);
-            const std::vector<std::unique_ptr<AObject>> &components = GetComponentsByName(name);
+            AEntity* entity = static_cast<AEntity *>(entityObj.get());
+            bool isValid = true;
 
-            for (const auto &obj : components)
+            isValid = entity->HasComponentsOfType(componentNames);
+
+            if (isValid)
             {
-                AComponent *component = static_cast<AComponent *>(obj.get());
-
-                compEntities.insert(component->Owner);
+                intersection.insert(entity);
             }
-
-            entitySets.push_back(compEntities);
-        }
-
-        std::unordered_set<AEntity *> tmpSet = entitySets[0];
-        std::unordered_set<AEntity *> intersection = tmpSet;
-        intersection.reserve(entityCount);
-        for (int i = 1; i < entitySets.size(); i++)
-        {
-            intersection.clear();
-            intersection.reserve(entityCount);
-
-            // TODO: iterate over intersection instead of the larger set
-            for (AEntity *e : entitySets[i])
-            {
-                if (tmpSet.count(e) > 0)
-                {
-                    intersection.insert(e);
-                }
-            }
-
-            tmpSet = intersection;
         }
 
         return intersection;

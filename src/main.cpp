@@ -130,7 +130,7 @@ int main()
             HotReloadTimer = Timer(500);
         });
 
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 10000; i++)
     {
         Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
 
@@ -144,10 +144,7 @@ int main()
         c->col = cols[rand() % 5];
 
         renderable* r = _registry.NewObject<renderable>(HName("renderable"));
-        //std::cout << r->renderType << std::endl;
         r->renderType = GetRandomValue(0, 1) ? "Rectangle" : "Circle";
-
-        //std::cout << r->renderType << std::endl;
 
         e->AddComponent(p);
         e->AddComponent(c);
@@ -240,7 +237,7 @@ nlohmann::json _serialized;
 
 void PreHotReload()
 {
-    const auto& entities = _registry.GetComponentsByName("AEntity");
+    const auto& entities = _registry.GetObjectsByName("AEntity");
 
     nlohmann::json serialized;
     serialized["Entities"] = {};

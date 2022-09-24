@@ -9,15 +9,6 @@ namespace Atlantis
 {
   struct Registry;
 
-  class HNameHashFunction
-  {
-  public:
-    size_t operator()(const HName &p) const
-    {
-      return p.Hash;
-    }
-  };
-
   struct System
   {
     std::unordered_set<HName, HNameHashFunction> Labels;

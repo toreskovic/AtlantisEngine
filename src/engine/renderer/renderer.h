@@ -30,7 +30,7 @@ namespace Atlantis
         DEF_CLASS();
 
         DEF_PROPERTY();
-        HName renderType = "Rectangle";
+        HName renderType;
 
         renderable(){};
         renderable(const renderable &other){};

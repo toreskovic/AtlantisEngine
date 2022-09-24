@@ -12,7 +12,6 @@
 
 #define DEF_PROPERTY()
 
-
 namespace Atlantis
 {
     struct HName
@@ -40,7 +39,7 @@ namespace Atlantis
         bool operator==(const char *name) const
         {
             return Hash == HName(name).Hash;
-            //return Name == name;
+            // return Name == name;
         }
 
         bool operator==(const HName &other) const
@@ -52,20 +51,29 @@ namespace Atlantis
         {
             return Hash < other.Hash;
         }
-        
-        friend std::ostream &operator<<(std::ostream &os, const HName& name) {
+
+        friend std::ostream &operator<<(std::ostream &os, const HName &name)
+        {
             return std::operator<<(os, name.Name);
         }
 
         bool IsValid()
         {
-            //return Hash > 0 && !Name.empty();
+            // return Hash > 0 && !Name.empty();
             return Hash > 0;
         }
     };
 
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HName, Name, Hash);
 
+    class HNameHashFunction
+    {
+    public:
+        size_t operator()(const HName &p) const
+        {
+            return p.Hash;
+        }
+    };
 
     struct PropertyData
     {
