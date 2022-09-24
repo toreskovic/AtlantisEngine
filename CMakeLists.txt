@@ -87,16 +87,22 @@ if (APPLE)
     target_link_libraries(${PROJECT_NAME} "-framework OpenGL")
 endif()
 
-add_subdirectory("AtlantisGame")
 
 add_custom_target(ParseHeaders
     COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/main.cpp ${PROJECT_SOURCE_DIR}
-    COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/AtlantisGame
+    COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/AtlantisGame
 )
 
-#add_dependencies(AtlantisGame ParseHeaders)
+add_custom_target(CreateProjectFile
+    COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py AtlantisGame
+)
+
 add_dependencies(AtlantisEngine ParseHeaders)
+
+add_subdirectory("projects/AtlantisGame")
 add_dependencies(AtlantisGame AtlantisEngine)
+
+add_dependencies(AtlantisGame CreateProjectFile)
 
 # temp to get rid of warnings
 #add_definitions(-w)

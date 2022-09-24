@@ -14,6 +14,8 @@
  ********************************************************************************************/
 
 #include <filesystem>
+#include <iostream>
+#include <fstream>
 #include "raylib.h"
 
 #if defined(PLATFORM_WEB)
@@ -145,6 +147,9 @@ void UpdateDrawFrame(void); // Update and Draw one frame
 //----------------------------------------------------------------------------------
 int main()
 {
+    std::ifstream projectFile("./project.aeng");
+    std::getline(projectFile, LibName);
+
     RegisterTypes();
     RegisterSystems();
 
