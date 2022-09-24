@@ -1,4 +1,6 @@
 #include "core.h"
+#include "system.h"
+#include <vector>
 
 #define SERIALIZE_PROP_HELPER(type) \
             if (propData.Type == #type) \
@@ -67,6 +69,33 @@ namespace Atlantis
             DESERIALIZE_PROP_HELPER(Color);
             DESERIALIZE_PROP_HELPER(std::string);
             DESERIALIZE_PROP_HELPER(Atlantis::HName);
+        }
+    }
+
+    void Registry::RegisterSystem(System* system, const std::vector<HName> &beforeLabels)
+    {
+        for (int i = 0; i < Systems.size(); i++)
+        {
+            const System *sys = Systems[i];
+
+            for (const HName& label : beforeLabels)
+            {
+                if (sys->Labels.count(label))
+                {
+                    Systems.insert(Systems.begin() + i, system);
+                    return;
+                }
+            }
+        }
+
+        Systems.push_back(system);
+    }
+
+    void Registry::ProcessSystems()
+    {
+        for (System* system : Systems)
+        {
+            system->Process(this);
         }
     }
 

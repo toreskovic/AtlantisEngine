@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include <map>
+#include <set>
 #include <unordered_set>
 #include <memory>
 #include "nlohmann/json.hpp"
@@ -14,6 +15,8 @@
 
 namespace Atlantis
 {
+    struct System;
+
     struct HNameComparer
     {
         constexpr bool operator()(const HName &lhs, const HName &rhs) const
@@ -152,6 +155,7 @@ namespace Atlantis
 
         static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
         std::map<HName, std::vector<std::unique_ptr<AObject>>, HNameComparer> ObjectLists;
+        std::vector<System*> Systems;
 
         /*void RegisterClass(AObject *obj)
         {
@@ -195,6 +199,10 @@ namespace Atlantis
 
             return static_cast<T *>(vec[vec.size() - 1].get());
         }
+
+        void RegisterSystem(System* system, const std::vector<HName> &beforeLabels = {});
+
+        void ProcessSystems();
 
         const std::vector<std::unique_ptr<AObject>> &GetComponentsByName(const HName &componentName);
 

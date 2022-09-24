@@ -57,7 +57,7 @@ void PostHotReload();
 
 // engine modules
 Registry _registry;
-Renderer _renderer(_registry);
+Renderer _renderer;
 
 void RegisterTypes()
 {
@@ -66,6 +66,11 @@ void RegisterTypes()
     _registry.RegisterDefault<color>();
     _registry.RegisterDefault<velocity>();
     _registry.RegisterDefault<renderable>();
+}
+
+void RegisterSystems()
+{
+    _registry.RegisterSystem(&_renderer);
 }
 
 //----------------------------------------------------------------------------------
@@ -79,6 +84,7 @@ void UpdateDrawFrame(void); // Update and Draw one frame
 int main()
 {
     RegisterTypes();
+    RegisterSystems();
 
     FinalLibName = LibDir + DirSlash + dylib::filename_components::prefix + LibName + dylib::filename_components::suffix;
 
@@ -179,7 +185,7 @@ void UpdateDrawFrame(void)
 
     ClearBackground(RAYWHITE);
 
-    _renderer.Render(_registry);
+    _registry.ProcessSystems();
 
     DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
 

@@ -5,6 +5,7 @@
 
 #include "engine/reflection/reflectionHelpers.h"
 #include "engine/core.h"
+#include "engine/system.h"
 #include "./generated/renderer.gen.h"
 
 namespace Atlantis
@@ -63,13 +64,9 @@ namespace Atlantis
         color(const color &other){};
     };
 
-    class Renderer
+    struct Renderer : public System
     {
-    public:
-        Renderer(Registry &registry);
-        ~Renderer();
-
-        void Render(Registry &registry);
+        virtual void Process(Registry* registry) override;
     };
 }
 
