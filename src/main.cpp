@@ -118,23 +118,19 @@ void RegisterSystems()
                              {
         const auto& entities = registry->GetEntitiesWithComponents({"velocity", "position"});
 
-#pragma omp parallel for default(none) shared(entities)
-        for (size_t b = 0; b < entities.bucket_count(); b++)
+        for (auto it = entities.begin(); it != entities.end(); it++)
         {
-        for (auto it = entities.begin(b); it != entities.end(b); it++)
-            {
-                AEntity* e = *it;
-                velocity *vel = e->GetComponentOfType<velocity>();
-                position *pos = e->GetComponentOfType<position>();
+            AEntity* e = *it;
+            velocity *vel = e->GetComponentOfType<velocity>();
+            position *pos = e->GetComponentOfType<position>();
 
-                pos->x += vel->x * GetFrameTime();
-                pos->y += vel->y * GetFrameTime();
+            pos->x += vel->x * GetFrameTime();
+            pos->y += vel->y * GetFrameTime();
 
-                if (((pos->x + 16) > GetScreenWidth()) ||
-                    ((pos->x + 16) < 0)) vel->x *= -1;
-                if (((pos->y + 16) > GetScreenHeight()) ||
-                    ((pos->y + 16 - 40) < 0)) vel->y *= -1;
-            }
+            if (((pos->x + 16) > GetScreenWidth()) ||
+                ((pos->x + 16) < 0)) vel->x *= -1;
+            if (((pos->y + 16) > GetScreenHeight()) ||
+                ((pos->y + 16 - 40) < 0)) vel->y *= -1;
         } },
                              {"Physics"}, {"BeginRender"});
 }
