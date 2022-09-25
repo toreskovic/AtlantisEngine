@@ -158,5 +158,6 @@ namespace Atlantis
         CData.clear();
         CDOs.clear();
         ObjectLists.clear();
+        Systems.clear();
     }
 } // namespace Atlantis

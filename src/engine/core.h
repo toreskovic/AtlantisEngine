@@ -20,7 +20,7 @@ namespace Atlantis
 
     struct HNameComparer
     {
-        constexpr bool operator()(const HName &lhs, const HName &rhs) const
+        bool operator()(const HName &lhs, const HName &rhs) const
         {
             return lhs < rhs;
         }

@@ -60,7 +60,6 @@ void PostHotReload();
 
 // engine modules
 Registry _registry;
-Renderer *_renderer = new Renderer();
 
 void RegisterTypes()
 {
@@ -73,9 +72,6 @@ void RegisterTypes()
 
 void RegisterSystems()
 {
-    _renderer->Labels.insert("Render");
-    _registry.RegisterSystem(_renderer, {"EndRender"});
-
     _registry.RegisterSystem([](Registry *)
                              {
         BeginDrawing();
@@ -83,58 +79,8 @@ void RegisterSystems()
                              {"BeginRender"}, {"Render"});
 
     _registry.RegisterSystem([](Registry *registry)
-                             {
-        static auto timer = Timer(1000);
-        static float fpsAggregator = 0.0f;
-        static int fpsCounter = 0;
-        static float fps = 0;
-
-        fpsAggregator += 1.0f / GetFrameTime();
-        fpsCounter++;
-        if (timer())
-        {
-            fps = fpsAggregator / fpsCounter;
-
-            fpsAggregator = 0.0f;
-            fpsCounter = 0;
-            timer = Timer(1000);
-        }
-
-        auto fpsStr = fmt::format("FPS: {:.2f}", fps);
-        int fontSize = 20;
-        int textSize = MeasureText(fpsStr.c_str(), fontSize);
-
-        auto bunnyStr = fmt::format("Bunnies: {}", registry->GetObjectCountByType("AEntity"));
-        textSize = std::max(textSize, MeasureText(bunnyStr.c_str(), fontSize));
-
-        Color bg = DARKGRAY;
-        bg.a = 150;
-
-        DrawRectangle(0, 0, textSize + 30, fontSize * 2 + 30, bg);
-        DrawText(fpsStr.c_str(), 10, 10, fontSize, LIGHTGRAY);
-        DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY);
-        EndDrawing(); },
+                             { EndDrawing(); },
                              {"EndRender"});
-
-    _registry.RegisterSystem([](Registry *registry)
-                             {
-        const auto& entities = registry->GetEntitiesWithComponents({"velocity", "position"});
-
-        for (auto it = entities.begin(); it != entities.end(); it++)
-        {
-            AEntity* e = *it;
-            velocity *vel = e->GetComponentOfType<velocity>();
-            position *pos = e->GetComponentOfType<position>();
-
-            pos->x += vel->x * GetFrameTime();
-            pos->y += vel->y * GetFrameTime();
-
-            if (((pos->x + 16) > GetScreenWidth()) ||
-                ((pos->x + 16) < 0)) vel->x *= -1;
-            if (((pos->y + 16) > GetScreenHeight()) ||
-                ((pos->y + 16 - 40) < 0)) vel->y *= -1;
-        } },
-                             {"Physics"}, {"BeginRender"});
 }
 
 //----------------------------------------------------------------------------------
@@ -225,8 +171,8 @@ int main()
     std::cout << d.Properties[0].Offset << std::endl;
     std::cout << d.Properties[1].Offset << std::endl;
 
-    PreHotReload();
-    PostHotReload();
+    // PreHotReload();
+    // PostHotReload();
 
     // Main game loop
     while (!WindowShouldClose()) // Detect window close button or ESC key
@@ -313,6 +259,7 @@ void PostHotReload()
 {
     _registry.Clear();
     RegisterTypes();
+    RegisterSystems();
 
     nlohmann::json serialized = _serialized;
     // std::cout << std::setw(4) << serialized << std::endl;
@@ -332,12 +279,19 @@ void PostHotReload()
     std::cout << "posthotreload" << std::endl;
 }
 
+bool GameInitialized = false;
+
 void DoDylibTest()
 {
     HotReloadTimer = []()
     { return false; };
 
-    PreHotReload();
+    if (GameInitialized)
+    {
+        PreHotReload();
+        auto preHotReload = LibPtr->get_function<void()>("PreHotReload");
+        preHotReload();
+    }
 
     TryUnloadDylib();
 
@@ -349,11 +303,27 @@ void DoDylibTest()
     // load lib
     LibPtr = new dylib(LibDir, LibTempName, false);
 
-    PostHotReload();
+    auto setRegistry = LibPtr->get_function<void(Registry *)>("SetRegistry");
+    setRegistry(&_registry);
+
+    if (GameInitialized)
+    {
+        PostHotReload();
+        auto postHotReload = LibPtr->get_function<void()>("PostHotReload");
+        postHotReload();
+    }
 
     auto printer = LibPtr->get_function<void()>("print_hello");
     printer();
 
     auto printer2 = LibPtr->get_function<void()>("print_helper");
     printer2();
+
+    if (!GameInitialized)
+    {
+        GameInitialized = true;
+
+        auto init = LibPtr->get_function<void()>("Init");
+        init();
+    }
 }

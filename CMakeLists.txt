@@ -57,14 +57,20 @@ include_directories(src)
 
 add_executable(${PROJECT_NAME} ${sources})
 
+set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
+set_property(TARGET AtlantisEngine PROPERTY ENABLE_EXPORTS ON)
+##target_compile_options(${PROJECT_NAME} PUBLIC -fPIC -rdynamic)
+
 #set(raylib_VERBOSE 1)
+set_property(TARGET raylib PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${PROJECT_NAME} raylib)
 
-#target_link_libraries(${PROJECT_NAME} AtlantisGame)
 target_link_libraries(${PROJECT_NAME} dylib)
 
+set_property(TARGET nlohmann_json PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
 
+set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${PROJECT_NAME} fmt)
 
 find_package(OpenMP)
@@ -107,6 +113,8 @@ add_dependencies(AtlantisGame CreateProjectFile)
 add_subdirectory("projects/AtlantisBunnyMark")
 add_dependencies(AtlantisBunnyMark AtlantisEngine)
 add_dependencies(AtlantisBunnyMark CreateProjectFile)
+
+##target_compile_options(AtlantisBunnyMark PUBLIC -fPIC -rdynamic)
 
 # temp to get rid of warnings
 #add_definitions(-w)
