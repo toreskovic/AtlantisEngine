@@ -34,6 +34,12 @@ namespace Atlantis
         return l.r == r.r && l.g == r.g && l.b == r.b && l.a == r.a;
     }
 
+    template <>
+    bool Helper_IsEqual(const Texture2D &l, const Texture2D &r)
+    {
+        return l.id == r.id;
+    }
+
     nlohmann::json AObject::Serialize()
     {
         nlohmann::json json;
@@ -48,9 +54,10 @@ namespace Atlantis
 
             SERIALIZE_PROP_HELPER(float);
             SERIALIZE_PROP_HELPER(Color);
+            SERIALIZE_PROP_HELPER(Texture2D);
             SERIALIZE_PROP_HELPER(std::string);
             SERIALIZE_PROP_HELPER(Atlantis::HName);
-            SERIALIZE_PROP_HELPER(Atlantis::ResourceHandle);
+            SERIALIZE_PROP_HELPER(Atlantis::AResourceHandle);
 
             json["Properties"].push_back(propJson);
         }
@@ -69,9 +76,10 @@ namespace Atlantis
 
             DESERIALIZE_PROP_HELPER(float);
             DESERIALIZE_PROP_HELPER(Color);
+            DESERIALIZE_PROP_HELPER(Texture2D);
             DESERIALIZE_PROP_HELPER(std::string);
             DESERIALIZE_PROP_HELPER(Atlantis::HName);
-            DESERIALIZE_PROP_HELPER(Atlantis::ResourceHandle);
+            DESERIALIZE_PROP_HELPER(Atlantis::AResourceHandle);
         }
     }
 

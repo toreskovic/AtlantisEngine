@@ -5,6 +5,7 @@
 #include <functional>
 #include <map>
 #include "nlohmann/json.hpp"
+#include "raylib.h"
 
 #define __DEF_CLASS_HELPER_1(line) __DEF_CLASS_HELPER_L_##line()
 #define __DEF_CLASS_HELPER_2(line) __DEF_CLASS_HELPER_1(line)
@@ -93,9 +94,40 @@ namespace Atlantis
         }
     };
 
-    struct ResourceHandle
+    struct AResource
+    {
+        virtual ~AResource(){};
+    };
+
+    struct ATextureResource : public AResource
+    {
+        Texture2D Texture;
+
+        ATextureResource(Texture2D tex)
+        {
+            Texture = tex;
+        }
+
+        virtual ~ATextureResource() { UnloadTexture(Texture); };
+    };
+
+    struct AResourceHandle
     {
         size_t Address = 0;
+
+        AResourceHandle()
+        {
+        }
+
+        AResourceHandle(AResource* ptr)
+        {
+            Address = (size_t)ptr;
+        }
+
+        AResourceHandle(const AResourceHandle& other)
+        {
+            Address = other.Address;
+        }
 
         template <typename T>
         T *get()
@@ -104,13 +136,18 @@ namespace Atlantis
             return static_cast<T *>(ptr);
         }
 
-        bool operator==(const ResourceHandle& other) const
+        bool operator==(const AResourceHandle& other) const
         {
             return Address == other.Address;
         }
+
+        void operator=(const AResourceHandle& other)
+        {
+            Address = other.Address;
+        }
     };
 
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ResourceHandle, Address);
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AResourceHandle, Address);
 
     struct PropertyData
     {

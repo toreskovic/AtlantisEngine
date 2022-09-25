@@ -16,13 +16,9 @@ namespace Atlantis
             static const HName typeRectangle = "Rectangle";
             static const HName typeCircle = "Circle";
 
-            if (ren->textureHandle.get<Texture2D>() != nullptr)
-                DrawTexture(*ren->textureHandle.get<Texture2D>(), pos->x, pos->y, col->col);
-            /*else if (ren->renderType == typeRectangle)
-                DrawRectangle(pos->x, pos->y, 50, 50, col->col);
-            else if (ren->renderType == typeCircle)
-                DrawCircle(pos->x, pos->y, 50, col->col);*/
-            
+            ATextureResource *tex = ren->textureHandle.get<ATextureResource>();
+            if (tex != nullptr)
+                DrawTexture(tex->Texture, pos->x, pos->y, col->col);
         }
     }
 }

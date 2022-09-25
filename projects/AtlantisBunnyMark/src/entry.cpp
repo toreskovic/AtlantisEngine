@@ -18,6 +18,8 @@ Renderer *_renderer = nullptr;
 
 Registry *ObjRegistry = nullptr;
 
+AResourceHandle bunnyHandle;
+
 extern "C"
 {
 
@@ -33,6 +35,32 @@ extern "C"
     {
         print_test();
     }
+
+    void createBunny()
+    {
+        Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
+
+        AEntity *e = ObjRegistry->NewObject<AEntity>(HName("AEntity"));
+
+        position *p = ObjRegistry->NewObject<position>(HName("position"));
+        p->x = (float)(rand() % 640);
+        p->y = (float)(rand() % 480);
+
+        color *c = ObjRegistry->NewObject<color>(HName("color"));
+        c->col = cols[rand() % 5];
+
+        renderable *r = ObjRegistry->NewObject<renderable>(HName("renderable"));
+        r->textureHandle = bunnyHandle;
+
+        velocity *v = ObjRegistry->NewObject<velocity>("velocity");
+        v->x = GetRandomValue(-250, 250);
+        v->y = GetRandomValue(-250, 250);
+
+        e->AddComponent(p);
+        e->AddComponent(c);
+        e->AddComponent(r);
+        e->AddComponent(v);
+    };
 
     void RegisterSystems()
     {
@@ -92,6 +120,17 @@ extern "C"
             DrawText(fpsStr.c_str(), 10, 10, fontSize, LIGHTGRAY);
             DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY); },
                                     {"DebugInfo"}, {"EndRender"});
+
+        ObjRegistry->RegisterSystem([](Registry *registry)
+                                    {
+            if (GetFrameTime() < 1.0f / 60.0f)
+            {
+                for (int i = 0; i < 100; i++)
+                {
+                    createBunny();
+                }
+            } },
+                                    {"CreateBunny"}, {"Physics"});
     }
 
     LIB_EXPORT void SetRegistry(Registry *registry)
@@ -101,7 +140,21 @@ extern "C"
 
     LIB_EXPORT void Init()
     {
+        bunnyHandle = ObjRegistry->ResourceHolder.GetTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png");
         RegisterSystems();
+
+        for (int i = 0; i < 1; i++)
+        {
+            createBunny();
+        }
+    }
+
+    LIB_EXPORT void Unload()
+    {
+    }
+
+    LIB_EXPORT void OnShutdown()
+    {
     }
 
     LIB_EXPORT void PreHotReload()

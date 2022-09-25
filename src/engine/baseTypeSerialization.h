@@ -7,6 +7,7 @@
 using json = nlohmann::json;
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Color, r, g, b, a);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Texture2D, id, width, height, mipmaps, format);
 
 // custom specialization
 /*NLOHMANN_JSON_NAMESPACE_BEGIN

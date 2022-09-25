@@ -30,10 +30,7 @@ namespace Atlantis
         DEF_CLASS();
 
         DEF_PROPERTY();
-        ResourceHandle textureHandle;
-
-        //DEF_PROPERTY();
-        //HName renderType;
+        AResourceHandle textureHandle;
 
         renderable(){};
         renderable(const renderable &other){};

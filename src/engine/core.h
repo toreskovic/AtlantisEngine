@@ -6,9 +6,11 @@
 #include <map>
 #include <set>
 #include <unordered_set>
+#include <unordered_map>
 #include <memory>
 #include "nlohmann/json.hpp"
 #include <algorithm>
+#include <string>
 
 #include "reflection/reflectionHelpers.h"
 #include "baseTypeSerialization.h"
@@ -124,9 +126,9 @@ namespace Atlantis
             std::sort(ComponentNames.begin(), ComponentNames.end());
         }
 
-        bool HasComponentOfType(const HName& name)
+        bool HasComponentOfType(const HName &name)
         {
-            for (const HName& compName : ComponentNames)
+            for (const HName &compName : ComponentNames)
             {
                 if (compName == name)
                 {
@@ -180,6 +182,25 @@ namespace Atlantis
         }
     };
 
+    struct AResourceHolder
+    {
+        std::unordered_map<std::string, std::unique_ptr<AResource>> Resources;
+
+        AResourceHandle GetTexture(std::string path)
+        {
+            if (Resources.contains(path))
+            {
+                AResourceHandle ret(Resources.at(path).get());
+                return ret;
+            }
+
+            Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture(path.c_str()))));
+
+            AResourceHandle ret(Resources.at(path).get());
+            return ret;
+        }
+    };
+
     struct Registry
     {
         std::map<HName, ClassData, HNameComparer> CData;
@@ -187,6 +208,7 @@ namespace Atlantis
         static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
         std::map<HName, std::vector<std::unique_ptr<AObject>>, HNameComparer> ObjectLists;
         std::vector<std::unique_ptr<System>> Systems;
+        AResourceHolder ResourceHolder;
 
         /*void RegisterClass(AObject *obj)
         {
@@ -241,7 +263,7 @@ namespace Atlantis
 
         const std::unordered_set<AEntity *> GetEntitiesWithComponents(std::vector<HName> componentsNames);
 
-        size_t GetObjectCountByType(const HName& objectName);
+        size_t GetObjectCountByType(const HName &objectName);
 
         void Clear();
     };

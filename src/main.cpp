@@ -98,6 +98,10 @@ int main()
 
     LibDir = "./projects/" + LibName;
 
+    // Initialization
+    //--------------------------------------------------------------------------------------
+    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+
     RegisterTypes();
     RegisterSystems();
 
@@ -112,45 +116,6 @@ int main()
             HotReloadTimer = Timer(500);
         });
 
-    // Initialization
-    //--------------------------------------------------------------------------------------
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
-
-    Texture2D bunnyTex = LoadTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png");
-
-    Registry *_reg = &_registry;
-
-    auto createBunny = [&bunnyTex, _reg]()
-    {
-        Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
-
-        AEntity *e = _reg->NewObject<AEntity>(HName("AEntity"));
-
-        position *p = _reg->NewObject<position>(HName("position"));
-        p->x = (float)(rand() % screenWidth);
-        p->y = (float)(rand() % screenHeight);
-
-        color *c = _registry.NewObject<color>(HName("color"));
-        c->col = cols[rand() % 5];
-
-        renderable *r = _reg->NewObject<renderable>(HName("renderable"));
-        // r->renderType = GetRandomValue(0, 1) ? "Rectangle" : "Circle";
-        r->textureHandle = {(size_t)&bunnyTex};
-
-        velocity *v = _reg->NewObject<velocity>("velocity");
-        v->x = GetRandomValue(-250, 250);
-        v->y = GetRandomValue(-250, 250);
-
-        e->AddComponent(p);
-        e->AddComponent(c);
-        e->AddComponent(r);
-        e->AddComponent(v);
-    };
-
-    for (int i = 0; i < 1; i++)
-    {
-        createBunny();
-    }
 
     /*auto &comps = _registry.GetAllComponentsByName(HName("renderable"));
     std::cout << "-----------" << std::endl;
@@ -183,23 +148,21 @@ int main()
         }
 
         UpdateDrawFrame();
-
-        if (GetFrameTime() < 1.0f / 60.0f)
-        {
-            for (int i = 0; i < 100; i++)
-            {
-                createBunny();
-            }
-        }
     }
 #endif
 
     // De-Initialization
+    _registry.ResourceHolder.Resources.clear();
     //--------------------------------------------------------------------------------------
-    UnloadTexture(bunnyTex);
     CloseWindow(); // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
 
+    if (LibPtr != nullptr)
+    {
+        auto onShutdown = LibPtr->get_function<void()>("OnShutdown");
+        onShutdown();
+    }
+    
     TryUnloadDylib();
     return 0;
 }
@@ -231,6 +194,9 @@ void TryUnloadDylib()
     if (!LibTempName.empty() && LibPtr != nullptr)
     {
         std::cout << "Unloading old lib" << std::endl;
+        auto unload = LibPtr->get_function<void()>("Unload");
+        unload();
+
         std::filesystem::remove(LibDir + DirSlash + LibTempName);
         // unload lib
         delete LibPtr;
