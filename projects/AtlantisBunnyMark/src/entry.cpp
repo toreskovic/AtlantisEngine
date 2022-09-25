@@ -140,7 +140,11 @@ extern "C"
 
     LIB_EXPORT void Init()
     {
+        SetWindowTitle("AtlantisEngine - BunnyMark");
+        SetWindowState(FLAG_WINDOW_RESIZABLE);
+
         bunnyHandle = ObjRegistry->ResourceHolder.GetTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png");
+
         RegisterSystems();
 
         for (int i = 0; i < 1; i++)
