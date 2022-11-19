@@ -201,14 +201,25 @@ namespace Atlantis
         }
     };
 
+    struct free_deleter
+    {
+        void operator()(void *const ptr) const
+        {
+            //free(ptr);
+        }
+    };
+
     struct Registry
     {
         std::map<HName, ClassData, HNameComparer> CData;
 
         static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
-        std::map<HName, std::vector<std::unique_ptr<AObject>>, HNameComparer> ObjectLists;
+        std::map<HName, std::vector<std::unique_ptr<AObject, free_deleter>>, HNameComparer> ObjectLists;
         std::vector<std::unique_ptr<System>> Systems;
         AResourceHolder ResourceHolder;
+
+        std::map<HName, size_t, HNameComparer> ObjAllocStuff;
+        std::vector<size_t> ObjAllocStart;
 
         /*void RegisterClass(AObject *obj)
         {
@@ -226,6 +237,10 @@ namespace Atlantis
             CData.emplace(data.Name, data);
 
             CDOs.emplace(data.Name, std::make_unique<T>(obj));
+
+            size_t memBlock = (size_t)malloc(100000 * data.Size);
+            ObjAllocStuff.emplace(data.Name, memBlock);
+            ObjAllocStart.push_back(memBlock);
         }
 
         template <typename T>
@@ -240,17 +255,29 @@ namespace Atlantis
             const T *CDO = GetCDO<T>(name);
 
             ClassData classData = CDO->GetClassData();
-            void *cpy = malloc(classData.Size);
+
+            void *cpy = (void *)ObjAllocStuff.at(classData.Name);
+            ObjAllocStuff.insert_or_assign(classData.Name, (size_t)cpy + classData.Size);
+
+            // void *cpy = malloc(classData.Size);
             memcpy(cpy, (void *)CDO, classData.Size);
 
             T *cpy_T = static_cast<T *>(cpy);
 
-            std::unique_ptr<AObject> sPtr(cpy_T);
+            std::unique_ptr<AObject, free_deleter> sPtr(cpy_T);
             ObjectLists[name].push_back(std::move(sPtr));
 
             auto &vec = ObjectLists[name];
 
             return static_cast<T *>(vec[vec.size() - 1].get());
+        }
+
+        ~Registry()
+        {
+            for (size_t thing : ObjAllocStart)
+            {
+                free((void *)thing);
+            }
         }
 
         void RegisterSystem(System *system, const std::vector<HName> &beforeLabels = {});
@@ -259,7 +286,7 @@ namespace Atlantis
 
         void ProcessSystems();
 
-        const std::vector<std::unique_ptr<AObject>> &GetObjectsByName(const HName &componentName);
+        const std::vector<std::unique_ptr<AObject, free_deleter>> &GetObjectsByName(const HName &componentName);
 
         const std::unordered_set<AEntity *> GetEntitiesWithComponents(std::vector<HName> componentsNames);
 

@@ -124,9 +124,9 @@ namespace Atlantis
         }
     }
 
-    const std::vector<std::unique_ptr<AObject>> &Registry::GetObjectsByName(const HName &componentName)
+    const std::vector<std::unique_ptr<AObject, free_deleter>> &Registry::GetObjectsByName(const HName &componentName)
     {
-        const std::vector<std::unique_ptr<AObject>> &objList = ObjectLists[componentName];
+        const std::vector<std::unique_ptr<AObject, free_deleter>> &objList = ObjectLists[componentName];
 
         return objList;
     }
