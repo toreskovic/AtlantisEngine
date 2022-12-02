@@ -166,5 +166,10 @@ namespace Atlantis
         CDOs.clear();
         ObjectLists.clear();
         Systems.clear();
+
+        for (auto thing : ObjAllocStuff)
+        {
+            free((void *)thing.second.Start);
+        }
     }
 } // namespace Atlantis

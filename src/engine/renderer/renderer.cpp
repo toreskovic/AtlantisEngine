@@ -3,7 +3,7 @@
 
 namespace Atlantis
 {
-    void Renderer::Process(ARegistry *registry)
+    void ARenderer::Process(ARegistry *registry)
     {
         static const std::vector<HName> components = {"renderable", "position", "color"};
         const auto& entities = registry->GetEntitiesWithComponents(components);

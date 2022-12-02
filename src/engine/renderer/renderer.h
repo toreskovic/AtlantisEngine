@@ -64,7 +64,7 @@ namespace Atlantis
         color(const color &other){};
     };
 
-    struct Renderer : public ASystem
+    struct ARenderer : public ASystem
     {
         virtual void Process(ARegistry* registry) override;
     };

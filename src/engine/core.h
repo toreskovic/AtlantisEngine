@@ -223,8 +223,16 @@ namespace Atlantis
         std::vector<std::unique_ptr<ASystem>> Systems;
         AResourceHolder ResourceHolder;
 
-        std::map<HName, size_t, HNameComparer> ObjAllocStuff;
-        std::vector<size_t> ObjAllocStart;
+        struct AllocatorMemoryHelper
+        {
+            size_t Start;
+            size_t Count;
+            size_t Limit;
+            size_t Increment;
+        };
+
+        std::map<HName, AllocatorMemoryHelper, HNameComparer> ObjAllocStuff;
+        //std::map<HName, size_t, HNameComparer> ObjAllocStart;
 
         /*void RegisterClass(AObject *obj)
         {
@@ -239,13 +247,20 @@ namespace Atlantis
         {
             T obj;
             AClassData data = obj.GetClassData();
-            CData.emplace(data.Name, data);
+            CData.insert_or_assign(data.Name, data);
 
-            CDOs.emplace(data.Name, std::make_unique<T>(obj));
+            CDOs.insert_or_assign(data.Name, std::make_unique<T>(obj));
 
             size_t memBlock = (size_t)malloc(Amount * data.Size);
-            ObjAllocStuff.emplace(data.Name, memBlock);
-            ObjAllocStart.push_back(memBlock);
+
+            AllocatorMemoryHelper h;
+            h.Start = memBlock;
+            h.Count = 0;
+            h.Limit = Amount;
+            h.Increment = Amount;
+
+            ObjAllocStuff.insert_or_assign(data.Name, h);
+            //ObjAllocStart.emplace(data.Name, memBlock);
         }
 
         template <typename T>
@@ -267,8 +282,10 @@ namespace Atlantis
 
             AClassData classData = CDO->GetClassData();
 
-            void *cpy = (void *)ObjAllocStuff.at(classData.Name);
-            ObjAllocStuff.insert_or_assign(classData.Name, (size_t)cpy + classData.Size);
+            AllocatorMemoryHelper& h = ObjAllocStuff.at(classData.Name);
+            void *cpy = (void *)(h.Start + h.Count * classData.Size);
+
+            h.Count++;
 
             // void *cpy = malloc(classData.Size);
             memcpy(cpy, (void *)CDO, classData.Size);
@@ -285,9 +302,9 @@ namespace Atlantis
 
         ~ARegistry()
         {
-            for (size_t thing : ObjAllocStart)
+            for (auto thing : ObjAllocStuff)
             {
-                free((void *)thing);
+                free((void *)thing.second.Start);
             }
         }
 

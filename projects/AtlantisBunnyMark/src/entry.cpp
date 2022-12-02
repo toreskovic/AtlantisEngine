@@ -14,7 +14,7 @@
 
 using namespace Atlantis;
 
-Renderer *_renderer = nullptr;
+ARenderer *_renderer = nullptr;
 
 ARegistry *ObjRegistry = nullptr;
 
@@ -64,7 +64,7 @@ extern "C"
 
     void RegisterSystems()
     {
-        _renderer = new Renderer();
+        _renderer = new ARenderer();
         _renderer->Labels.insert("Render");
         ObjRegistry->RegisterSystem(_renderer, {"EndRender"});
 
