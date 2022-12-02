@@ -16,7 +16,7 @@ using namespace Atlantis;
 
 Renderer *_renderer = nullptr;
 
-Registry *ObjRegistry = nullptr;
+ARegistry *ObjRegistry = nullptr;
 
 AResourceHandle bunnyHandle;
 
@@ -68,7 +68,7 @@ extern "C"
         _renderer->Labels.insert("Render");
         ObjRegistry->RegisterSystem(_renderer, {"EndRender"});
 
-        ObjRegistry->RegisterSystem([](Registry *registry)
+        ObjRegistry->RegisterSystem([](ARegistry *registry)
                                     {
         const auto& entities = registry->GetEntitiesWithComponents({"velocity", "position"});
 
@@ -88,7 +88,7 @@ extern "C"
         } },
                                     {"Physics"}, {"BeginRender"});
 
-        ObjRegistry->RegisterSystem([](Registry *registry)
+        ObjRegistry->RegisterSystem([](ARegistry *registry)
                                     {
             static auto timer = Timer(1000);
             static float fpsAggregator = 0.0f;
@@ -121,7 +121,7 @@ extern "C"
             DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY); },
                                     {"DebugInfo"}, {"EndRender"});
 
-        ObjRegistry->RegisterSystem([](Registry *registry)
+        ObjRegistry->RegisterSystem([](ARegistry *registry)
                                     {
             if (GetFrameTime() < 1.0f / 60.0f)
             {
@@ -133,7 +133,7 @@ extern "C"
                                     {"CreateBunny"}, {"Physics"});
     }
 
-    LIB_EXPORT void SetRegistry(Registry *registry)
+    LIB_EXPORT void SetRegistry(ARegistry *registry)
     {
         ObjRegistry = registry;
     }

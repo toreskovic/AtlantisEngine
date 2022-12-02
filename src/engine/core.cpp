@@ -20,7 +20,7 @@
 
 namespace Atlantis
 {
-    std::map<HName, std::unique_ptr<AObject>, HNameComparer> Registry::CDOs{};
+    std::map<HName, std::unique_ptr<AObject>, HNameComparer> ARegistry::CDOs{};
 
     template <typename T>
     bool Helper_IsEqual(const T &l, const T &r)
@@ -50,7 +50,7 @@ namespace Atlantis
         for (const auto &propData : classData.Properties)
         {
             nlohmann::json propJson = {{"Name", propData.Name.GetName()}, {"Type", propData.Type.GetName()}, {"Offset", propData.Offset}};
-            const AObject *cdo = Registry::GetCDO<AObject>(classData.Name);
+            const AObject *cdo = ARegistry::GetCDO<AObject>(classData.Name);
 
             SERIALIZE_PROP_HELPER(float);
             SERIALIZE_PROP_HELPER(Color);
@@ -83,15 +83,15 @@ namespace Atlantis
         }
     }
 
-    void Registry::RegisterSystem(System *system, const std::vector<HName> &beforeLabels)
+    void ARegistry::RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels)
     {
-        std::unique_ptr<System> systemPtr(system);
+        std::unique_ptr<ASystem> systemPtr(system);
 
         if (beforeLabels.size() > 0)
         {
             for (int i = 0; i < Systems.size(); i++)
             {
-                const System *sys = Systems[i].get();
+                const ASystem *sys = Systems[i].get();
 
                 for (const HName &label : beforeLabels)
                 {
@@ -107,36 +107,36 @@ namespace Atlantis
         Systems.push_back(std::move(systemPtr));
     }
 
-    void Registry::RegisterSystem(std::function<void(Registry *)> lambda, const std::vector<HName> &labels, const std::vector<HName> &beforeLabels)
+    void ARegistry::RegisterSystem(std::function<void(ARegistry *)> lambda, const std::vector<HName> &labels, const std::vector<HName> &beforeLabels)
     {
-        LambdaSystem* system = new LambdaSystem();
+        ALambdaSystem* system = new ALambdaSystem();
         system->Lambda = lambda;
         system->Labels = {labels.begin(), labels.end()};
 
         RegisterSystem(system, beforeLabels);
     }
 
-    void Registry::ProcessSystems()
+    void ARegistry::ProcessSystems()
     {
-        for (std::unique_ptr<System> &system : Systems)
+        for (std::unique_ptr<ASystem> &system : Systems)
         {
             system->Process(this);
         }
     }
 
-    const std::vector<std::unique_ptr<AObject, free_deleter>> &Registry::GetObjectsByName(const HName &componentName)
+    const std::vector<std::unique_ptr<AObject, free_deleter>> &ARegistry::GetObjectsByName(const HName &componentName)
     {
         const std::vector<std::unique_ptr<AObject, free_deleter>> &objList = ObjectLists[componentName];
 
         return objList;
     }
 
-    size_t Registry::GetObjectCountByType(const HName& objectName)
+    size_t ARegistry::GetObjectCountByType(const HName& objectName)
     {
         return GetObjectsByName(objectName).size();
     }
 
-    const std::unordered_set<AEntity *> Registry::GetEntitiesWithComponents(std::vector<HName> componentNames)
+    const std::unordered_set<AEntity *> ARegistry::GetEntitiesWithComponents(std::vector<HName> componentNames)
     {
         std::unordered_set<AEntity *> intersection;
         const auto& entities = GetObjectsByName("AEntity");
@@ -148,9 +148,8 @@ namespace Atlantis
         for (auto& entityObj : entities)
         {
             AEntity* entity = static_cast<AEntity *>(entityObj.get());
-            bool isValid = true;
-
-            isValid = entity->HasComponentsOfType(componentNames);
+            
+            bool isValid = entity->__isAlive && entity->HasComponentsOfType(componentNames);
 
             if (isValid)
             {
@@ -161,7 +160,7 @@ namespace Atlantis
         return intersection;
     }
 
-    void Registry::Clear()
+    void ARegistry::Clear()
     {
         CData.clear();
         CDOs.clear();

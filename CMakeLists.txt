@@ -100,7 +100,11 @@ add_custom_target(ParseHeaders
     COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/AtlantisBunnyMark
 )
 
-add_custom_target(CreateProjectFile
+add_custom_target(CreateProjectFileGame
+    COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py AtlantisGame
+)
+
+add_custom_target(CreateProjectFileBunnyMark
     COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py AtlantisBunnyMark
 )
 
@@ -108,11 +112,11 @@ add_dependencies(AtlantisEngine ParseHeaders)
 
 add_subdirectory("projects/AtlantisGame")
 add_dependencies(AtlantisGame AtlantisEngine)
-add_dependencies(AtlantisGame CreateProjectFile)
+add_dependencies(AtlantisGame CreateProjectFileGame)
 
 add_subdirectory("projects/AtlantisBunnyMark")
 add_dependencies(AtlantisBunnyMark AtlantisEngine)
-add_dependencies(AtlantisBunnyMark CreateProjectFile)
+add_dependencies(AtlantisBunnyMark CreateProjectFileBunnyMark)
 
 ##target_compile_options(AtlantisBunnyMark PUBLIC -fPIC -rdynamic)
 

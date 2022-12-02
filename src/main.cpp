@@ -59,7 +59,7 @@ void PreHotReload();
 void PostHotReload();
 
 // engine modules
-Registry _registry;
+ARegistry _registry;
 
 void RegisterTypes()
 {
@@ -72,13 +72,13 @@ void RegisterTypes()
 
 void RegisterSystems()
 {
-    _registry.RegisterSystem([](Registry *)
+    _registry.RegisterSystem([](ARegistry *)
                              {
         BeginDrawing();
         ClearBackground(RAYWHITE); },
                              {"BeginRender"}, {"Render"});
 
-    _registry.RegisterSystem([](Registry *registry)
+    _registry.RegisterSystem([](ARegistry *registry)
                              { EndDrawing(); },
                              {"EndRender"});
 }
@@ -132,7 +132,7 @@ int main()
     //--------------------------------------------------------------------------------------
 
     position p;
-    ClassData d = p.GetClassData();
+    AClassData d = p.GetClassData();
     std::cout << d.Properties[0].Offset << std::endl;
     std::cout << d.Properties[1].Offset << std::endl;
 
@@ -269,7 +269,7 @@ void DoDylibTest()
     // load lib
     LibPtr = new dylib(LibDir, LibTempName, false);
 
-    auto setRegistry = LibPtr->get_function<void(Registry *)>("SetRegistry");
+    auto setRegistry = LibPtr->get_function<void(ARegistry *)>("SetRegistry");
     setRegistry(&_registry);
 
     if (GameInitialized)

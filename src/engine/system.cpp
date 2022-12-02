@@ -2,11 +2,11 @@
 
 namespace Atlantis
 {
-  void System::Process(Registry *registry)
+  void ASystem::Process(ARegistry *registry)
   {
   }
 
-  void LambdaSystem::Process(Registry *registry)
+  void ALambdaSystem::Process(ARegistry *registry)
   {
     Lambda(registry);
   }

@@ -18,7 +18,7 @@
 
 namespace Atlantis
 {
-    struct System;
+    struct ASystem;
 
     struct HNameComparer
     {
@@ -30,16 +30,16 @@ namespace Atlantis
 
     struct AObject
     {
-        virtual const ClassData &GetClassData() const
+        virtual const AClassData &GetClassData() const
         {
-            static ClassData __classData;
+            static AClassData __classData;
             return __classData;
         };
 
         template <typename T>
         T GetProperty(const HName &name) const
         {
-            const ClassData &classData = GetClassData();
+            const AClassData &classData = GetClassData();
             for (auto &prop : classData.Properties)
             {
                 if (prop.Name == name)
@@ -56,7 +56,7 @@ namespace Atlantis
         template <typename T>
         void SetProperty(const HName &name, T value)
         {
-            const ClassData &classData = GetClassData();
+            const AClassData &classData = GetClassData();
             for (auto &prop : classData.Properties)
             {
                 if (prop.Name == name)
@@ -86,6 +86,11 @@ namespace Atlantis
 
         std::vector<AComponent *> Components;
         std::vector<HName> ComponentNames;
+
+        // TODO: move this to object and rename
+        // used internally to know if we need to process the entity / component
+        // or ignore it (and potentially reuse it when creating new entities / components)
+        bool __isAlive = true;
 
         AComponent *GetComponentOfType(const HName &name)
         {
@@ -209,13 +214,13 @@ namespace Atlantis
         }
     };
 
-    struct Registry
+    struct ARegistry
     {
-        std::map<HName, ClassData, HNameComparer> CData;
+        std::map<HName, AClassData, HNameComparer> CData;
 
         static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
         std::map<HName, std::vector<std::unique_ptr<AObject, free_deleter>>, HNameComparer> ObjectLists;
-        std::vector<std::unique_ptr<System>> Systems;
+        std::vector<std::unique_ptr<ASystem>> Systems;
         AResourceHolder ResourceHolder;
 
         std::map<HName, size_t, HNameComparer> ObjAllocStuff;
@@ -223,24 +228,30 @@ namespace Atlantis
 
         /*void RegisterClass(AObject *obj)
         {
-            ClassData data = obj->GetClassData();
+            AClassData data = obj->GetClassData();
             CData.emplace(data.Name, data);
 
             CDOs.emplace(data.Name, std::make_shared<AObject>(*obj));
         }*/
 
-        template <typename T>
+        template <typename T, size_t Amount>
         void RegisterDefault()
         {
             T obj;
-            ClassData data = obj.GetClassData();
+            AClassData data = obj.GetClassData();
             CData.emplace(data.Name, data);
 
             CDOs.emplace(data.Name, std::make_unique<T>(obj));
 
-            size_t memBlock = (size_t)malloc(100000 * data.Size);
+            size_t memBlock = (size_t)malloc(Amount * data.Size);
             ObjAllocStuff.emplace(data.Name, memBlock);
             ObjAllocStart.push_back(memBlock);
+        }
+
+        template <typename T>
+        void RegisterDefault()
+        {
+            RegisterDefault<T, 100000>();
         }
 
         template <typename T>
@@ -254,7 +265,7 @@ namespace Atlantis
         {
             const T *CDO = GetCDO<T>(name);
 
-            ClassData classData = CDO->GetClassData();
+            AClassData classData = CDO->GetClassData();
 
             void *cpy = (void *)ObjAllocStuff.at(classData.Name);
             ObjAllocStuff.insert_or_assign(classData.Name, (size_t)cpy + classData.Size);
@@ -272,7 +283,7 @@ namespace Atlantis
             return static_cast<T *>(vec[vec.size() - 1].get());
         }
 
-        ~Registry()
+        ~ARegistry()
         {
             for (size_t thing : ObjAllocStart)
             {
@@ -280,9 +291,9 @@ namespace Atlantis
             }
         }
 
-        void RegisterSystem(System *system, const std::vector<HName> &beforeLabels = {});
+        void RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels = {});
 
-        void RegisterSystem(std::function<void(Registry *)> lambda, const std::vector<HName> &labels = {}, const std::vector<HName> &beforeLabels = {});
+        void RegisterSystem(std::function<void(ARegistry *)> lambda, const std::vector<HName> &labels = {}, const std::vector<HName> &beforeLabels = {});
 
         void ProcessSystems();
 

@@ -149,14 +149,14 @@ namespace Atlantis
 
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AResourceHandle, Address);
 
-    struct PropertyData
+    struct APropertyData
     {
         HName Name;
         HName Type;
         size_t Offset;
     };
 
-    struct MethodData
+    struct AMethodData
     {
         HName Name;
         HName ReturnType;
@@ -164,11 +164,11 @@ namespace Atlantis
         // std::function<std::any(void *)> FunctionHelper;
     };
 
-    struct ClassData
+    struct AClassData
     {
         HName Name;
-        std::vector<PropertyData> Properties;
-        std::vector<MethodData> Methods;
+        std::vector<APropertyData> Properties;
+        std::vector<AMethodData> Methods;
         size_t Size;
 
         bool IsValid()
