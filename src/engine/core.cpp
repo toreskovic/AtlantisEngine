@@ -83,6 +83,40 @@ namespace Atlantis
         }
     }
 
+    void AEntity::AddComponent(AComponent *component)
+    {
+        component->Owner = this;
+        Components.push_back(component);
+
+        ComponentNames.push_back(component->GetClassData().Name);
+        std::sort(ComponentNames.begin(), ComponentNames.end());
+
+        __componentMask = World->GetComponentMaskForComponents(ComponentNames);
+    }
+
+    bool AEntity::HasComponentOfType(const HName &name)
+    {
+        for (const HName &compName : ComponentNames)
+        {
+            if (compName == name)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AEntity::HasComponentsByMask(ComponentBitset mask)
+    {
+        return (mask & __componentMask) == mask;
+    }
+
+    bool AEntity::HasComponentsOfType(const std::vector<HName> &names)
+    {
+        return HasComponentsByMask(World->GetComponentMaskForComponents(names));
+    }
+
     void ARegistry::RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels)
     {
         std::unique_ptr<ASystem> systemPtr(system);
@@ -109,7 +143,7 @@ namespace Atlantis
 
     void ARegistry::RegisterSystem(std::function<void(ARegistry *)> lambda, const std::vector<HName> &labels, const std::vector<HName> &beforeLabels)
     {
-        ALambdaSystem* system = new ALambdaSystem();
+        ALambdaSystem *system = new ALambdaSystem();
         system->Lambda = lambda;
         system->Labels = {labels.begin(), labels.end()};
 
@@ -131,7 +165,7 @@ namespace Atlantis
         return objList;
     }
 
-    size_t ARegistry::GetObjectCountByType(const HName& objectName)
+    size_t ARegistry::GetObjectCountByType(const HName &objectName)
     {
         return GetObjectsByName(objectName).size();
     }
@@ -139,17 +173,18 @@ namespace Atlantis
     const std::vector<AEntity *> ARegistry::GetEntitiesWithComponents(std::vector<HName> componentNames)
     {
         std::vector<AEntity *> intersection;
-        const auto& entities = GetObjectsByName("AEntity");
+        const auto &entities = GetObjectsByName("AEntity");
         intersection.reserve(entities.size());
 
-        std::sort(componentNames.begin(), componentNames.end());
+        // std::sort(componentNames.begin(), componentNames.end());
+        ComponentBitset componentMask = GetComponentMaskForComponents(componentNames);
 
         // TODO: iterate only over entities for the componentName with the smallest amount of instances
-        for (auto& entityObj : entities)
+        for (auto &entityObj : entities)
         {
-            AEntity* entity = static_cast<AEntity *>(entityObj.get());
-            
-            bool isValid = entity->__isAlive && entity->HasComponentsOfType(componentNames);
+            AEntity *entity = static_cast<AEntity *>(entityObj.get());
+
+            bool isValid = entity->__isAlive && entity->HasComponentsByMask(componentMask);
 
             if (isValid)
             {
@@ -158,6 +193,22 @@ namespace Atlantis
         }
 
         return intersection;
+    }
+
+    ComponentBitset ARegistry::GetComponentMaskForComponents(std::vector<HName> componentsNames)
+    {
+        ComponentBitset ret = 0x0;
+
+        for (uint i = 0; i < componentsNames.size(); i++)
+        {
+            auto it = std::find(ComponentNames.begin(), ComponentNames.end(), componentsNames[i]);
+            if (it != ComponentNames.end())
+            {
+                ret.set(i, true);
+            }
+        }
+
+        return ret;
     }
 
     void ARegistry::Clear()

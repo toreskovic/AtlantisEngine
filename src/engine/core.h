@@ -11,10 +11,15 @@
 #include "nlohmann/json.hpp"
 #include <algorithm>
 #include <string>
+#include <type_traits>
+#include <bitset>
 
 #include "reflection/reflectionHelpers.h"
 #include "baseTypeSerialization.h"
 #include "./generated/core.gen.h"
+
+//TODO: arbitrary number, make it configurable and / or larger by default
+typedef std::bitset<200> ComponentBitset;
 
 namespace Atlantis
 {
@@ -80,6 +85,8 @@ namespace Atlantis
         AEntity *Owner;
     };
 
+    struct ARegistry;
+
     struct AEntity : public AObject
     {
         DEF_CLASS();
@@ -87,10 +94,15 @@ namespace Atlantis
         std::vector<AComponent *> Components;
         std::vector<HName> ComponentNames;
 
+        ARegistry *World = nullptr;
+
         // TODO: move this to object and rename
         // used internally to know if we need to process the entity / component
         // or ignore it (and potentially reuse it when creating new entities / components)
         bool __isAlive = true;
+
+        // used internally to check quickly for components
+        ComponentBitset __componentMask = 0x0;
 
         AComponent *GetComponentOfType(const HName &name)
         {
@@ -122,40 +134,25 @@ namespace Atlantis
             return nullptr;
         }
 
-        void AddComponent(AComponent *component)
-        {
-            component->Owner = this;
-            Components.push_back(component);
+        void AddComponent(AComponent *component);
 
-            ComponentNames.push_back(component->GetClassData().Name);
-            std::sort(ComponentNames.begin(), ComponentNames.end());
-        }
+        bool HasComponentOfType(const HName &name);
 
-        bool HasComponentOfType(const HName &name)
+        bool HasComponentsByMask(ComponentBitset mask);
+
+        bool HasComponentsOfType(const std::vector<HName> &names);
+        //{
+        // return World->GetComponentMaskForComponents(names) == __componentMask;
+        /*for (int i = 0; i < names.size(); i++)
         {
-            for (const HName &compName : ComponentNames)
+            if (std::find(ComponentNames.begin(), ComponentNames.end(), names[i]) == ComponentNames.end())
             {
-                if (compName == name)
-                {
-                    return true;
-                }
+                return false;
             }
-
-            return false;
         }
 
-        bool HasComponentsOfType(const std::vector<HName> &names)
-        {
-            for (int i = 0; i < names.size(); i++)
-            {
-                if (std::find(ComponentNames.begin(), ComponentNames.end(), names[i]) == ComponentNames.end())
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
+        return true;*/
+        //}
 
         AEntity(){};
 
@@ -223,6 +220,8 @@ namespace Atlantis
         std::vector<std::unique_ptr<ASystem>> Systems;
         AResourceHolder ResourceHolder;
 
+        std::vector<HName> ComponentNames;
+
         struct AllocatorMemoryHelper
         {
             size_t Start;
@@ -261,12 +260,18 @@ namespace Atlantis
 
             ObjAllocStuff.insert_or_assign(data.Name, h);
             // ObjAllocStart.emplace(data.Name, memBlock);
+
+            T *objPtr = &obj;
+            if (dynamic_cast<AComponent *>(objPtr) != nullptr)
+            {
+                ComponentNames.push_back(data.Name);
+            }
         }
 
         template <typename T>
         void RegisterDefault()
         {
-            RegisterDefault<T, 100000>();
+            RegisterDefault<T, 200000>();
         }
 
         template <typename T>
@@ -276,7 +281,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        T *NewObject(const HName &name)
+        T *NewObject_Base(const HName &name)
         {
             const T *CDO = GetCDO<T>(name);
 
@@ -298,6 +303,23 @@ namespace Atlantis
             auto &vec = ObjectLists[name];
 
             return static_cast<T *>(vec[vec.size() - 1].get());
+        }
+
+        template <typename T,
+                      std::enable_if_t<!std::is_base_of_v<AEntity, T>> * = nullptr>
+        T *NewObject(const HName &name)
+        {
+            return NewObject_Base<T>(name);
+        }
+
+        template <typename T,
+                  std::enable_if_t<std::is_base_of_v<AEntity, T>> * = nullptr>
+        T *NewObject(const HName &name)
+        {
+            T *obj = NewObject_Base<T>(name);
+            obj->World = this;
+
+            return obj;
         }
 
         // TODO: refactor static class instantiation
@@ -326,6 +348,8 @@ namespace Atlantis
         const std::vector<std::unique_ptr<AObject, free_deleter>> &GetObjectsByName(const HName &componentName);
 
         const std::vector<AEntity *> GetEntitiesWithComponents(std::vector<HName> componentsNames);
+
+        ComponentBitset GetComponentMaskForComponents(std::vector<HName> componentsNames);
 
         size_t GetObjectCountByType(const HName &objectName);
 

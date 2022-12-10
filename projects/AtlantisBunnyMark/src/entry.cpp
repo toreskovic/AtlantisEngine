@@ -146,11 +146,6 @@ extern "C"
         bunnyHandle = ObjRegistry->ResourceHolder.GetTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png");
 
         RegisterSystems();
-
-        for (int i = 0; i < 1; i++)
-        {
-            createBunny();
-        }
     }
 
     LIB_EXPORT void Unload()

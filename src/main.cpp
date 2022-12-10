@@ -30,6 +30,8 @@
 #include "engine/renderer/renderer.h"
 #include "nlohmann/json.hpp"
 #include "fmt/core.h"
+
+#include <omp.h>
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
@@ -93,6 +95,26 @@ void UpdateDrawFrame(void); // Update and Draw one frame
 //----------------------------------------------------------------------------------
 int main()
 {
+    auto cpuThreadCount = omp_get_num_procs();
+    if (cpuThreadCount == 0)
+    {
+        cpuThreadCount = 1;
+        std::cout << "CPU multithreading not detected!";
+    }
+    else
+    {
+        std::cout << "CPU threads detected: " << cpuThreadCount << std::endl;
+        // TODO: find a better way for this, arbitrary
+        if (cpuThreadCount > 10)
+        {
+            cpuThreadCount /= 2;
+        }
+
+        std::cout << "Setting used CPU thread count to: " << cpuThreadCount << std::endl;
+    }
+
+    omp_set_num_threads(cpuThreadCount);
+
     std::ifstream projectFile("./project.aeng");
     std::getline(projectFile, LibName);
 
