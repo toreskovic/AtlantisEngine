@@ -3,18 +3,16 @@
 
 namespace Atlantis
 {
-    void ARenderer::Process(ARegistry *registry)
+    void SRenderer::Process(ARegistry *registry)
     {
-        static const std::vector<HName> components = {"renderable", "position", "color"};
-        const auto& entities = registry->GetEntitiesWithComponents(components);
+        //static const std::vector<HName> components = {"CRenderable", "CPosition", "CColor"};
+        //const auto& entities = registry->GetEntitiesWithComponents(components);
+        const auto& entities = registry->GetEntitiesWithComponents<CRenderable, CPosition, CColor>();
         for (auto* e: entities)
         {
-            renderable *ren = e->GetComponentOfType<renderable>();
-            position *pos = e->GetComponentOfType<position>();
-            color *col = e->GetComponentOfType<color>();
-            
-            static const HName typeRectangle = "Rectangle";
-            static const HName typeCircle = "Circle";
+            CRenderable *ren = e->GetComponentOfType<CRenderable>();
+            CPosition *pos = e->GetComponentOfType<CPosition>();
+            CColor *col = e->GetComponentOfType<CColor>();
 
             ATextureResource *tex = ren->textureHandle.get<ATextureResource>();
             if (tex != nullptr)

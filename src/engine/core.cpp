@@ -136,9 +136,9 @@ namespace Atlantis
         return GetObjectsByName(objectName).size();
     }
 
-    const std::unordered_set<AEntity *> ARegistry::GetEntitiesWithComponents(std::vector<HName> componentNames)
+    const std::vector<AEntity *> ARegistry::GetEntitiesWithComponents(std::vector<HName> componentNames)
     {
-        std::unordered_set<AEntity *> intersection;
+        std::vector<AEntity *> intersection;
         const auto& entities = GetObjectsByName("AEntity");
         intersection.reserve(entities.size());
 
@@ -153,7 +153,7 @@ namespace Atlantis
 
             if (isValid)
             {
-                intersection.insert(entity);
+                intersection.push_back(entity);
             }
         }
 

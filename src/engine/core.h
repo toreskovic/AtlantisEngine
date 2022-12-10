@@ -210,7 +210,7 @@ namespace Atlantis
     {
         void operator()(void *const ptr) const
         {
-            //free(ptr);
+            // free(ptr);
         }
     };
 
@@ -232,7 +232,7 @@ namespace Atlantis
         };
 
         std::map<HName, AllocatorMemoryHelper, HNameComparer> ObjAllocStuff;
-        //std::map<HName, size_t, HNameComparer> ObjAllocStart;
+        // std::map<HName, size_t, HNameComparer> ObjAllocStart;
 
         /*void RegisterClass(AObject *obj)
         {
@@ -260,7 +260,7 @@ namespace Atlantis
             h.Increment = Amount;
 
             ObjAllocStuff.insert_or_assign(data.Name, h);
-            //ObjAllocStart.emplace(data.Name, memBlock);
+            // ObjAllocStart.emplace(data.Name, memBlock);
         }
 
         template <typename T>
@@ -282,7 +282,7 @@ namespace Atlantis
 
             AClassData classData = CDO->GetClassData();
 
-            AllocatorMemoryHelper& h = ObjAllocStuff.at(classData.Name);
+            AllocatorMemoryHelper &h = ObjAllocStuff.at(classData.Name);
             void *cpy = (void *)(h.Start + h.Count * classData.Size);
 
             h.Count++;
@@ -298,6 +298,15 @@ namespace Atlantis
             auto &vec = ObjectLists[name];
 
             return static_cast<T *>(vec[vec.size() - 1].get());
+        }
+
+        // TODO: refactor static class instantiation
+        // Ugly, but convenient for now
+        template <typename T>
+        T *NewObject()
+        {
+            static T tmp;
+            return NewObject<T>(tmp.GetClassData().Name);
         }
 
         ~ARegistry()
@@ -316,11 +325,46 @@ namespace Atlantis
 
         const std::vector<std::unique_ptr<AObject, free_deleter>> &GetObjectsByName(const HName &componentName);
 
-        const std::unordered_set<AEntity *> GetEntitiesWithComponents(std::vector<HName> componentsNames);
+        const std::vector<AEntity *> GetEntitiesWithComponents(std::vector<HName> componentsNames);
 
         size_t GetObjectCountByType(const HName &objectName);
 
         void Clear();
+
+        template <typename T>
+        void GetNamesOfComponents(std::vector<HName> &names)
+        {
+            static T tmp;
+            static HName tmpName = tmp.GetClassData().Name;
+            names.push_back(tmpName);
+        }
+
+        // TODO: refactor static class instantiation
+        // Ugly, but convenient for now
+        template <typename T1, typename T2, typename... Types>
+        void GetNamesOfComponents(std::vector<HName> &names)
+        {
+            static T1 tmp;
+            static HName tmpName = tmp.GetClassData().Name;
+            names.push_back(tmpName);
+
+            GetNamesOfComponents<T2, Types...>(names);
+        }
+
+        template <typename T, typename... Types>
+        const std::vector<AEntity *> GetEntitiesWithComponents()
+        {
+            static std::vector<HName> names;
+            if (names.size() == 0)
+            {
+                // TODO: make less arbitrary
+                names.reserve(8);
+
+                GetNamesOfComponents<T, Types...>(names);
+            }
+
+            return GetEntitiesWithComponents(names);
+        }
     };
 }
 

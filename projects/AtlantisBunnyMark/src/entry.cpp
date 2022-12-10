@@ -14,7 +14,7 @@
 
 using namespace Atlantis;
 
-ARenderer *_renderer = nullptr;
+SRenderer *_renderer = nullptr;
 
 ARegistry *ObjRegistry = nullptr;
 
@@ -40,19 +40,19 @@ extern "C"
     {
         Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
 
-        AEntity *e = ObjRegistry->NewObject<AEntity>(HName("AEntity"));
+        AEntity *e = ObjRegistry->NewObject<AEntity>();
 
-        position *p = ObjRegistry->NewObject<position>(HName("position"));
+        CPosition *p = ObjRegistry->NewObject<CPosition>();
         p->x = (float)(rand() % 640);
         p->y = (float)(rand() % 480);
 
-        color *c = ObjRegistry->NewObject<color>(HName("color"));
+        CColor *c = ObjRegistry->NewObject<CColor>();
         c->col = cols[rand() % 5];
 
-        renderable *r = ObjRegistry->NewObject<renderable>(HName("renderable"));
+        CRenderable *r = ObjRegistry->NewObject<CRenderable>();
         r->textureHandle = bunnyHandle;
 
-        velocity *v = ObjRegistry->NewObject<velocity>("velocity");
+        CVelocity *v = ObjRegistry->NewObject<CVelocity>();
         v->x = GetRandomValue(-250, 250);
         v->y = GetRandomValue(-250, 250);
 
@@ -64,19 +64,19 @@ extern "C"
 
     void RegisterSystems()
     {
-        _renderer = new ARenderer();
+        _renderer = new SRenderer();
         _renderer->Labels.insert("Render");
         ObjRegistry->RegisterSystem(_renderer, {"EndRender"});
 
         ObjRegistry->RegisterSystem([](ARegistry *registry)
                                     {
-        const auto& entities = registry->GetEntitiesWithComponents({"velocity", "position"});
-
-        for (auto it = entities.begin(); it != entities.end(); it++)
+        const auto& entities = registry->GetEntitiesWithComponents<CVelocity, CPosition>();
+        
+        #pragma omp parallel for
+        for (AEntity* e : entities)
         {
-            AEntity* e = *it;
-            velocity *vel = e->GetComponentOfType<velocity>();
-            position *pos = e->GetComponentOfType<position>();
+            CVelocity *vel = e->GetComponentOfType<CVelocity>();
+            CPosition *pos = e->GetComponentOfType<CPosition>();
 
             pos->x += vel->x * GetFrameTime();
             pos->y += vel->y * GetFrameTime();

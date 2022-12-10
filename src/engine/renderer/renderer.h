@@ -10,7 +10,7 @@
 
 namespace Atlantis
 {
-    struct position : public AComponent
+    struct CPosition : public AComponent
     {
         DEF_CLASS();
 
@@ -21,22 +21,22 @@ namespace Atlantis
         DEF_PROPERTY();
         float z;
 
-        position(){};
-        position(const position &other){};
+        CPosition(){};
+        CPosition(const CPosition &other){};
     };
 
-    struct renderable : public AComponent
+    struct CRenderable : public AComponent
     {
         DEF_CLASS();
 
         DEF_PROPERTY();
         AResourceHandle textureHandle;
 
-        renderable(){};
-        renderable(const renderable &other){};
+        CRenderable(){};
+        CRenderable(const CRenderable &other){};
     };
 
-    struct velocity : public AComponent
+    struct CVelocity : public AComponent
     {
         DEF_CLASS();
 
@@ -49,22 +49,22 @@ namespace Atlantis
         DEF_PROPERTY();
         float z;
 
-        velocity(){};
-        velocity(const velocity &other){};
+        CVelocity(){};
+        CVelocity(const CVelocity &other){};
     };
 
-    struct color : public AComponent
+    struct CColor : public AComponent
     {
         DEF_CLASS();
 
         DEF_PROPERTY();
         Color col;
 
-        color(){};
-        color(const color &other){};
+        CColor(){};
+        CColor(const CColor &other){};
     };
 
-    struct ARenderer : public ASystem
+    struct SRenderer : public ASystem
     {
         virtual void Process(ARegistry* registry) override;
     };

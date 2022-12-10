@@ -64,10 +64,10 @@ ARegistry _registry;
 void RegisterTypes()
 {
     _registry.RegisterDefault<AEntity>();
-    _registry.RegisterDefault<position>();
-    _registry.RegisterDefault<color>();
-    _registry.RegisterDefault<velocity>();
-    _registry.RegisterDefault<renderable>();
+    _registry.RegisterDefault<CPosition>();
+    _registry.RegisterDefault<CColor>();
+    _registry.RegisterDefault<CVelocity>();
+    _registry.RegisterDefault<CRenderable>();
 }
 
 void RegisterSystems()
@@ -131,7 +131,7 @@ int main()
     // SetTargetFPS(60); // Set our game to run at 60 frames-per-second
     //--------------------------------------------------------------------------------------
 
-    position p;
+    CPosition p;
     AClassData d = p.GetClassData();
     std::cout << d.Properties[0].Offset << std::endl;
     std::cout << d.Properties[1].Offset << std::endl;
