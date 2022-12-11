@@ -37,8 +37,8 @@ namespace Atlantis
     {
         virtual const AClassData &GetClassData() const
         {
-            static AClassData __classData;
-            return __classData;
+            static AClassData classData;
+            return classData;
         };
 
         template <typename T>
@@ -322,13 +322,10 @@ namespace Atlantis
             return obj;
         }
 
-        // TODO: refactor static class instantiation
-        // Ugly, but convenient for now
         template <typename T>
         T *NewObject()
         {
-            static T tmp;
-            return NewObject<T>(tmp.GetClassData().Name);
+            return NewObject<T>(T::GetClassDataStatic().Name);
         }
 
         ~AWorld()
@@ -363,13 +360,10 @@ namespace Atlantis
             names.push_back(tmpName);
         }
 
-        // TODO: refactor static class instantiation
-        // Ugly, but convenient for now
         template <typename T1, typename T2, typename... Types>
         void GetNamesOfComponents(std::vector<HName> &names)
         {
-            static T1 tmp;
-            static HName tmpName = tmp.GetClassData().Name;
+            static HName tmpName = T1::GetClassDataStatic().Name;
             names.push_back(tmpName);
 
             GetNamesOfComponents<T2, Types...>(names);

@@ -51,16 +51,28 @@ def class_decl(node):
         #print(fields_data)
         current_file.write(
 """#define __DEF_CLASS_HELPER_L_{line}() \\
-    virtual const AClassData& GetClassData() const override \\
+    static AClassData& GetClassDataStatic() \\
     {{ \\
-        static AClassData __classData; \\
-        if (__classData.IsValid()) return __classData; \\
+        static AClassData classData; \\
+        if (classData.IsValid()) return classData; \\
             \\
-        __classData.Name = "{class_name}"; \\
-        __classData.Size = sizeof({class_name}); \\
+        classData.Name = "{class_name}"; \\
+        classData.Size = sizeof({class_name}); \\
             \\
         {fields} \\
-        return __classData; \\
+        return classData; \\
+    }} \\
+    \\
+    virtual const AClassData& GetClassData() const override \\
+    {{ \\
+        static AClassData classData; \\
+        if (classData.IsValid()) return classData; \\
+            \\
+        classData.Name = "{class_name}"; \\
+        classData.Size = sizeof({class_name}); \\
+            \\
+        {fields} \\
+        return classData; \\
     }}\n""".format(line = macro_line, class_name = node.spelling, fields = " \\\n\t\t".join(fields_data)))
     pass
 
@@ -75,7 +87,7 @@ def field_decl(node):
             current_macros.pop(0)
             
             #return f"""PropertyData propData {{ "{node.spelling}", "{node.type.spelling}", offsetof({current_class_name}, {node.spelling}) }};"""
-            return f"""__classData.Properties.push_back({{ HName("{node.spelling}"), HName("{node.type.spelling}"), offsetof({current_class_name}, {node.spelling}) }});"""
+            return f"""classData.Properties.push_back({{ HName("{node.spelling}"), HName("{node.type.spelling}"), offsetof({current_class_name}, {node.spelling}) }});"""
     return ""
 
 def method_decl(node):
