@@ -66,7 +66,7 @@ namespace Atlantis
 
     struct SRenderer : public ASystem
     {
-        virtual void Process(ARegistry* registry) override;
+        virtual void Process(AWorld* world) override;
     };
 }
 

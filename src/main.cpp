@@ -61,26 +61,26 @@ void PreHotReload();
 void PostHotReload();
 
 // engine modules
-ARegistry _registry;
+AWorld World;
 
 void RegisterTypes()
 {
-    _registry.RegisterDefault<AEntity>();
-    _registry.RegisterDefault<CPosition>();
-    _registry.RegisterDefault<CColor>();
-    _registry.RegisterDefault<CVelocity>();
-    _registry.RegisterDefault<CRenderable>();
+    World.RegisterDefault<AEntity>();
+    World.RegisterDefault<CPosition>();
+    World.RegisterDefault<CColor>();
+    World.RegisterDefault<CVelocity>();
+    World.RegisterDefault<CRenderable>();
 }
 
 void RegisterSystems()
 {
-    _registry.RegisterSystem([](ARegistry *)
+    World.RegisterSystem([](AWorld *world)
                              {
         BeginDrawing();
         ClearBackground(RAYWHITE); },
                              {"BeginRender"}, {"Render"});
 
-    _registry.RegisterSystem([](ARegistry *registry)
+    World.RegisterSystem([](AWorld *world)
                              { EndDrawing(); },
                              {"EndRender"});
 }
@@ -139,7 +139,7 @@ int main()
         });
 
 
-    /*auto &comps = _registry.GetAllComponentsByName(HName("renderable"));
+    /*auto &comps = World.GetAllComponentsByName(HName("renderable"));
     std::cout << "-----------" << std::endl;
     for (auto &comp : comps)
     {
@@ -174,7 +174,7 @@ int main()
 #endif
 
     // De-Initialization
-    _registry.ResourceHolder.Resources.clear();
+    World.ResourceHolder.Resources.clear();
     //--------------------------------------------------------------------------------------
     CloseWindow(); // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
@@ -201,7 +201,7 @@ void UpdateDrawFrame(void)
 
     // Draw
     //----------------------------------------------------------------------------------
-    _registry.ProcessSystems();
+    World.ProcessSystems();
     //----------------------------------------------------------------------------------
 }
 
@@ -230,7 +230,7 @@ nlohmann::json _serialized;
 
 void PreHotReload()
 {
-    const auto &entities = _registry.GetObjectsByName("AEntity");
+    const auto &entities = World.GetObjectsByName("AEntity");
 
     nlohmann::json serialized;
     serialized["Entities"] = {};
@@ -245,7 +245,7 @@ void PreHotReload()
 
 void PostHotReload()
 {
-    _registry.Clear();
+    World.Clear();
     RegisterTypes();
     RegisterSystems();
 
@@ -253,11 +253,11 @@ void PostHotReload()
     // std::cout << std::setw(4) << serialized << std::endl;
     for (auto &ent : serialized["Entities"])
     {
-        AEntity *e = _registry.NewObject<AEntity>(HName("AEntity"));
+        AEntity *e = World.NewObject<AEntity>(HName("AEntity"));
 
         for (auto &comp : ent["Components"])
         {
-            AComponent *component = _registry.NewObject<AComponent>(comp["Name"].get<std::string>());
+            AComponent *component = World.NewObject<AComponent>(comp["Name"].get<std::string>());
             component->Deserialize(comp);
 
             e->AddComponent(component);
@@ -291,8 +291,8 @@ void DoDylibTest()
     // load lib
     LibPtr = new dylib(LibDir, LibTempName, false);
 
-    auto setRegistry = LibPtr->get_function<void(ARegistry *)>("SetRegistry");
-    setRegistry(&_registry);
+    auto setWorld = LibPtr->get_function<void(AWorld *)>("SetWorld");
+    setWorld(&World);
 
     if (GameInitialized)
     {

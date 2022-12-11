@@ -10,7 +10,7 @@
 
 using namespace Atlantis;
 
-ARegistry* ObjRegistry = nullptr;
+AWorld* World = nullptr;
 
 extern "C" {
 
@@ -25,9 +25,9 @@ LIB_EXPORT void print_helper() {
     print_test();
 }
 
-LIB_EXPORT void Init(ARegistry& registry)
+LIB_EXPORT void Init(AWorld& world)
 {
-    ObjRegistry = &registry;
+    World = &world;
 }
 
 LIB_EXPORT void PreHotReload()

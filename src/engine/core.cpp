@@ -20,7 +20,7 @@
 
 namespace Atlantis
 {
-    std::map<HName, std::unique_ptr<AObject>, HNameComparer> ARegistry::CDOs{};
+    std::map<HName, std::unique_ptr<AObject>, HNameComparer> AWorld::CDOs{};
 
     template <typename T>
     bool Helper_IsEqual(const T &l, const T &r)
@@ -50,7 +50,7 @@ namespace Atlantis
         for (const auto &propData : classData.Properties)
         {
             nlohmann::json propJson = {{"Name", propData.Name.GetName()}, {"Type", propData.Type.GetName()}, {"Offset", propData.Offset}};
-            const AObject *cdo = ARegistry::GetCDO<AObject>(classData.Name);
+            const AObject *cdo = AWorld::GetCDO<AObject>(classData.Name);
 
             SERIALIZE_PROP_HELPER(float);
             SERIALIZE_PROP_HELPER(Color);
@@ -117,7 +117,7 @@ namespace Atlantis
         return HasComponentsByMask(World->GetComponentMaskForComponents(names));
     }
 
-    void ARegistry::RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels)
+    void AWorld::RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels)
     {
         std::unique_ptr<ASystem> systemPtr(system);
 
@@ -141,7 +141,7 @@ namespace Atlantis
         Systems.push_back(std::move(systemPtr));
     }
 
-    void ARegistry::RegisterSystem(std::function<void(ARegistry *)> lambda, const std::vector<HName> &labels, const std::vector<HName> &beforeLabels)
+    void AWorld::RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<HName> &labels, const std::vector<HName> &beforeLabels)
     {
         ALambdaSystem *system = new ALambdaSystem();
         system->Lambda = lambda;
@@ -150,7 +150,7 @@ namespace Atlantis
         RegisterSystem(system, beforeLabels);
     }
 
-    void ARegistry::ProcessSystems()
+    void AWorld::ProcessSystems()
     {
         for (std::unique_ptr<ASystem> &system : Systems)
         {
@@ -158,19 +158,19 @@ namespace Atlantis
         }
     }
 
-    const std::vector<std::unique_ptr<AObject, free_deleter>> &ARegistry::GetObjectsByName(const HName &componentName)
+    const std::vector<std::unique_ptr<AObject, free_deleter>> &AWorld::GetObjectsByName(const HName &componentName)
     {
         const std::vector<std::unique_ptr<AObject, free_deleter>> &objList = ObjectLists[componentName];
 
         return objList;
     }
 
-    size_t ARegistry::GetObjectCountByType(const HName &objectName)
+    size_t AWorld::GetObjectCountByType(const HName &objectName)
     {
         return GetObjectsByName(objectName).size();
     }
 
-    const std::vector<AEntity *> ARegistry::GetEntitiesWithComponents(std::vector<HName> componentNames)
+    const std::vector<AEntity *> AWorld::GetEntitiesWithComponents(std::vector<HName> componentNames)
     {
         std::vector<AEntity *> intersection;
         const auto &entities = GetObjectsByName("AEntity");
@@ -195,7 +195,7 @@ namespace Atlantis
         return intersection;
     }
 
-    ComponentBitset ARegistry::GetComponentMaskForComponents(std::vector<HName> componentsNames)
+    ComponentBitset AWorld::GetComponentMaskForComponents(std::vector<HName> componentsNames)
     {
         ComponentBitset ret = 0x0;
 
@@ -211,7 +211,7 @@ namespace Atlantis
         return ret;
     }
 
-    void ARegistry::Clear()
+    void AWorld::Clear()
     {
         CData.clear();
         CDOs.clear();

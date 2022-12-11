@@ -85,7 +85,7 @@ namespace Atlantis
         AEntity *Owner;
     };
 
-    struct ARegistry;
+    struct AWorld;
 
     struct AEntity : public AObject
     {
@@ -94,7 +94,7 @@ namespace Atlantis
         std::vector<AComponent *> Components;
         std::vector<HName> ComponentNames;
 
-        ARegistry *World = nullptr;
+        AWorld *World = nullptr;
 
         // TODO: move this to object and rename
         // used internally to know if we need to process the entity / component
@@ -211,7 +211,7 @@ namespace Atlantis
         }
     };
 
-    struct ARegistry
+    struct AWorld
     {
         std::map<HName, AClassData, HNameComparer> CData;
 
@@ -331,7 +331,7 @@ namespace Atlantis
             return NewObject<T>(tmp.GetClassData().Name);
         }
 
-        ~ARegistry()
+        ~AWorld()
         {
             for (auto thing : ObjAllocStuff)
             {
@@ -341,7 +341,7 @@ namespace Atlantis
 
         void RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels = {});
 
-        void RegisterSystem(std::function<void(ARegistry *)> lambda, const std::vector<HName> &labels = {}, const std::vector<HName> &beforeLabels = {});
+        void RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<HName> &labels = {}, const std::vector<HName> &beforeLabels = {});
 
         void ProcessSystems();
 

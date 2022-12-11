@@ -16,7 +16,7 @@ using namespace Atlantis;
 
 SRenderer *_renderer = nullptr;
 
-ARegistry *ObjRegistry = nullptr;
+AWorld *World = nullptr;
 
 AResourceHandle bunnyHandle;
 
@@ -40,19 +40,19 @@ extern "C"
     {
         Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
 
-        AEntity *e = ObjRegistry->NewObject<AEntity>();
+        AEntity *e = World->NewObject<AEntity>();
 
-        CPosition *p = ObjRegistry->NewObject<CPosition>();
+        CPosition *p = World->NewObject<CPosition>();
         p->x = (float)(rand() % 640);
         p->y = (float)(rand() % 480);
 
-        CColor *c = ObjRegistry->NewObject<CColor>();
+        CColor *c = World->NewObject<CColor>();
         c->col = cols[rand() % 5];
 
-        CRenderable *r = ObjRegistry->NewObject<CRenderable>();
+        CRenderable *r = World->NewObject<CRenderable>();
         r->textureHandle = bunnyHandle;
 
-        CVelocity *v = ObjRegistry->NewObject<CVelocity>();
+        CVelocity *v = World->NewObject<CVelocity>();
         v->x = GetRandomValue(-250, 250);
         v->y = GetRandomValue(-250, 250);
 
@@ -66,11 +66,11 @@ extern "C"
     {
         _renderer = new SRenderer();
         _renderer->Labels.insert("Render");
-        ObjRegistry->RegisterSystem(_renderer, {"EndRender"});
+        World->RegisterSystem(_renderer, {"EndRender"});
 
-        ObjRegistry->RegisterSystem([](ARegistry *registry)
+        World->RegisterSystem([](AWorld *world)
                                     {
-        const auto& entities = registry->GetEntitiesWithComponents<CVelocity, CPosition>();
+        const auto& entities = world->GetEntitiesWithComponents<CVelocity, CPosition>();
         
         #pragma omp parallel for
         for (AEntity* e : entities)
@@ -88,7 +88,7 @@ extern "C"
         } },
                                     {"Physics"}, {"BeginRender"});
 
-        ObjRegistry->RegisterSystem([](ARegistry *registry)
+        World->RegisterSystem([](AWorld *world)
                                     {
             static auto timer = Timer(1000);
             static float fpsAggregator = 0.0f;
@@ -110,7 +110,7 @@ extern "C"
             int fontSize = 20;
             int textSize = MeasureText(fpsStr.c_str(), fontSize);
 
-            auto bunnyStr = fmt::format("Bunnies: {}", registry->GetObjectCountByType("AEntity"));
+            auto bunnyStr = fmt::format("Bunnies: {}", world->GetObjectCountByType("AEntity"));
             textSize = std::max(textSize, MeasureText(bunnyStr.c_str(), fontSize));
 
             Color bg = DARKGRAY;
@@ -121,7 +121,7 @@ extern "C"
             DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY); },
                                     {"DebugInfo"}, {"EndRender"});
 
-        ObjRegistry->RegisterSystem([](ARegistry *registry)
+        World->RegisterSystem([](AWorld *world)
                                     {
             if (GetFrameTime() < 1.0f / 60.0f)
             {
@@ -133,9 +133,9 @@ extern "C"
                                     {"CreateBunny"}, {"Physics"});
     }
 
-    LIB_EXPORT void SetRegistry(ARegistry *registry)
+    LIB_EXPORT void SetWorld(AWorld *world)
     {
-        ObjRegistry = registry;
+        World = world;
     }
 
     LIB_EXPORT void Init()
@@ -143,7 +143,7 @@ extern "C"
         SetWindowTitle("AtlantisEngine - BunnyMark");
         SetWindowState(FLAG_WINDOW_RESIZABLE);
 
-        bunnyHandle = ObjRegistry->ResourceHolder.GetTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png");
+        bunnyHandle = World->ResourceHolder.GetTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png");
 
         RegisterSystems();
     }

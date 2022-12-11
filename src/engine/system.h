@@ -7,20 +7,20 @@
 
 namespace Atlantis
 {
-  struct ARegistry;
+  struct AWorld;
 
   struct ASystem
   {
     std::unordered_set<HName, HNameHashFunction> Labels;
 
-    virtual void Process(ARegistry *registry);
+    virtual void Process(AWorld *world);
   };
 
   struct ALambdaSystem : public ASystem
   {
-    std::function<void(ARegistry *)> Lambda;
+    std::function<void(AWorld *)> Lambda;
 
-    virtual void Process(ARegistry *registry) override;
+    virtual void Process(AWorld *world) override;
   };
 
 } // namespace Atlantis
