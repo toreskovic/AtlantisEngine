@@ -22,20 +22,6 @@ AResourceHandle bunnyHandle;
 
 extern "C"
 {
-
-    LIB_EXPORT double pi_value = 3.14159;
-    LIB_EXPORT void *ptr = (void *)1;
-
-    LIB_EXPORT void print_hello()
-    {
-        std::cout << "Hello World" << std::endl;
-    }
-
-    LIB_EXPORT void print_helper()
-    {
-        print_test();
-    }
-
     void createBunny()
     {
         Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};

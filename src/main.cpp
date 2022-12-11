@@ -301,12 +301,6 @@ void DoDylibTest()
         postHotReload();
     }
 
-    auto printer = LibPtr->get_function<void()>("print_hello");
-    printer();
-
-    auto printer2 = LibPtr->get_function<void()>("print_helper");
-    printer2();
-
     if (!GameInitialized)
     {
         GameInitialized = true;
