@@ -119,7 +119,7 @@ namespace Atlantis
 
     void AWorld::MarkObjectDead(AObject *object)
     {
-        object->__isAlive = false;
+        object->_isAlive = false;
     }
 
     void AWorld::RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels)
@@ -163,9 +163,9 @@ namespace Atlantis
         }
     }
 
-    const std::vector<std::unique_ptr<AObject, no_deleter>> &AWorld::GetObjectsByName(const HName &componentName)
+    const std::vector<std::unique_ptr<AObject, no_deleter>> &AWorld::GetObjectsByName(const HName &objectName)
     {
-        const std::vector<std::unique_ptr<AObject, no_deleter>> &objList = ObjectLists[componentName];
+        const std::vector<std::unique_ptr<AObject, no_deleter>> &objList = ObjectLists[objectName];
 
         return objList;
     }
@@ -189,7 +189,7 @@ namespace Atlantis
         {
             AEntity *entity = static_cast<AEntity *>(entityObj.get());
 
-            bool isValid = entity->__isAlive && entity->HasComponentsByMask(componentMask);
+            bool isValid = entity->_isAlive && entity->HasComponentsByMask(componentMask);
 
             if (isValid)
             {
