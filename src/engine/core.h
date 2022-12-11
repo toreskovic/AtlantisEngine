@@ -35,6 +35,10 @@ namespace Atlantis
 
     struct AObject
     {
+        // used internally to know if we need to process the entity / component
+        // or ignore it (and potentially reuse it when creating new entities / components)
+        bool __isAlive = true;
+
         virtual const AClassData &GetClassData() const
         {
             static AClassData classData;
@@ -95,11 +99,6 @@ namespace Atlantis
         std::vector<HName> ComponentNames;
 
         AWorld *World = nullptr;
-
-        // TODO: move this to object and rename
-        // used internally to know if we need to process the entity / component
-        // or ignore it (and potentially reuse it when creating new entities / components)
-        bool __isAlive = true;
 
         // used internally to check quickly for components
         ComponentBitset __componentMask = 0x0;
@@ -203,11 +202,10 @@ namespace Atlantis
         }
     };
 
-    struct free_deleter
+    struct no_deleter
     {
         void operator()(void *const ptr) const
         {
-            // free(ptr);
         }
     };
 
@@ -216,7 +214,7 @@ namespace Atlantis
         std::map<HName, AClassData, HNameComparer> CData;
 
         static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
-        std::map<HName, std::vector<std::unique_ptr<AObject, free_deleter>>, HNameComparer> ObjectLists;
+        std::map<HName, std::vector<std::unique_ptr<AObject, no_deleter>>, HNameComparer> ObjectLists;
         std::vector<std::unique_ptr<ASystem>> Systems;
         AResourceHolder ResourceHolder;
 
@@ -230,7 +228,7 @@ namespace Atlantis
             size_t Increment;
         };
 
-        std::map<HName, AllocatorMemoryHelper, HNameComparer> ObjAllocStuff;
+        std::map<HName, AllocatorMemoryHelper, HNameComparer> AllocatorHelpers;
         // std::map<HName, size_t, HNameComparer> ObjAllocStart;
 
         /*void RegisterClass(AObject *obj)
@@ -252,13 +250,13 @@ namespace Atlantis
 
             size_t memBlock = (size_t)malloc(Amount * data.Size);
 
-            AllocatorMemoryHelper h;
-            h.Start = memBlock;
-            h.Count = 0;
-            h.Limit = Amount;
-            h.Increment = Amount;
+            AllocatorMemoryHelper allocatorHelper;
+            allocatorHelper.Start = memBlock;
+            allocatorHelper.Count = 0;
+            allocatorHelper.Limit = Amount;
+            allocatorHelper.Increment = Amount;
 
-            ObjAllocStuff.insert_or_assign(data.Name, h);
+            AllocatorHelpers.insert_or_assign(data.Name, allocatorHelper);
             // ObjAllocStart.emplace(data.Name, memBlock);
 
             T *objPtr = &obj;
@@ -287,17 +285,17 @@ namespace Atlantis
 
             AClassData classData = CDO->GetClassData();
 
-            AllocatorMemoryHelper &h = ObjAllocStuff.at(classData.Name);
-            void *cpy = (void *)(h.Start + h.Count * classData.Size);
+            AllocatorMemoryHelper &allocatorHelper = AllocatorHelpers.at(classData.Name);
+            void *cpy = (void *)(allocatorHelper.Start + allocatorHelper.Count * classData.Size);
 
-            h.Count++;
+            allocatorHelper.Count++;
 
             // void *cpy = malloc(classData.Size);
             memcpy(cpy, (void *)CDO, classData.Size);
 
             T *cpy_T = static_cast<T *>(cpy);
 
-            std::unique_ptr<AObject, free_deleter> sPtr(cpy_T);
+            std::unique_ptr<AObject, no_deleter> sPtr(cpy_T);
             ObjectLists[name].push_back(std::move(sPtr));
 
             auto &vec = ObjectLists[name];
@@ -328,9 +326,11 @@ namespace Atlantis
             return NewObject<T>(T::GetClassDataStatic().Name);
         }
 
+        void MarkObjectDead(AObject* object);
+
         ~AWorld()
         {
-            for (auto thing : ObjAllocStuff)
+            for (auto thing : AllocatorHelpers)
             {
                 free((void *)thing.second.Start);
             }
@@ -342,7 +342,7 @@ namespace Atlantis
 
         void ProcessSystems();
 
-        const std::vector<std::unique_ptr<AObject, free_deleter>> &GetObjectsByName(const HName &componentName);
+        const std::vector<std::unique_ptr<AObject, no_deleter>> &GetObjectsByName(const HName &componentName);
 
         const std::vector<AEntity *> GetEntitiesWithComponents(std::vector<HName> componentsNames);
 
