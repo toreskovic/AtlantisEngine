@@ -14,11 +14,13 @@
 #include <type_traits>
 #include <bitset>
 
+#include <iostream>
+
 #include "reflection/reflectionHelpers.h"
 #include "baseTypeSerialization.h"
 #include "./generated/core.gen.h"
 
-//TODO: arbitrary number, make it configurable and / or larger by default
+// TODO: arbitrary number, make it configurable and / or larger by default
 typedef std::bitset<200> ComponentBitset;
 
 namespace Atlantis
@@ -239,7 +241,7 @@ namespace Atlantis
             CDOs.emplace(data.Name, std::make_shared<AObject>(*obj));
         }*/
 
-        template <typename T, size_t Amount>
+        template <typename T, size_t Amount, size_t Increment = Amount>
         void RegisterDefault()
         {
             T obj;
@@ -254,7 +256,7 @@ namespace Atlantis
             allocatorHelper.Start = memBlock;
             allocatorHelper.Count = 0;
             allocatorHelper.Limit = Amount;
-            allocatorHelper.Increment = Amount;
+            allocatorHelper.Increment = Increment;
 
             AllocatorHelpers.insert_or_assign(data.Name, allocatorHelper);
             // ObjAllocStart.emplace(data.Name, memBlock);
@@ -269,7 +271,7 @@ namespace Atlantis
         template <typename T>
         void RegisterDefault()
         {
-            RegisterDefault<T, 200000>();
+            RegisterDefault<T, 10000>();
         }
 
         template <typename T>
@@ -286,6 +288,44 @@ namespace Atlantis
             AClassData classData = CDO->GetClassData();
 
             AllocatorMemoryHelper &allocatorHelper = AllocatorHelpers.at(classData.Name);
+            if (allocatorHelper.Count >= allocatorHelper.Limit)
+            {
+                std::cout << "Reallocating memory for type " << classData.Name.GetName() << " from " << allocatorHelper.Limit << " to " << allocatorHelper.Limit + allocatorHelper.Increment << std::endl;
+
+                allocatorHelper.Limit += allocatorHelper.Increment;
+                allocatorHelper.Start = (size_t)realloc((void *)allocatorHelper.Start, allocatorHelper.Limit * classData.Size);
+
+                ObjectLists[name].clear();
+                ObjectLists[name].reserve(allocatorHelper.Limit);
+
+                for (size_t i = 0; i < allocatorHelper.Count; i++)
+                {
+                    T *objPtr = static_cast<T *>((void *)(allocatorHelper.Start + i * classData.Size));
+                    std::unique_ptr<AObject, no_deleter> sPtr(objPtr);
+                    ObjectLists[name].push_back(std::move(sPtr));
+
+                    // TODO: Ugly
+                    if (AEntity* entity = dynamic_cast<AEntity *>(objPtr))
+                    {
+                        for (auto* component : entity->Components)
+                        {
+                            component->Owner = entity;
+                        }
+                    }
+                    else if (AComponent* component = dynamic_cast<AComponent *>(objPtr))
+                    {
+                        for (int j = 0; j < component->Owner->Components.size(); j++)
+                        {
+                            if (component->Owner->ComponentNames[j] == classData.Name)
+                            {
+                                component->Owner->Components[j] = component;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
             void *cpy = (void *)(allocatorHelper.Start + allocatorHelper.Count * classData.Size);
 
             allocatorHelper.Count++;
@@ -304,7 +344,7 @@ namespace Atlantis
         }
 
         template <typename T,
-                      std::enable_if_t<!std::is_base_of_v<AEntity, T>> * = nullptr>
+                  std::enable_if_t<!std::is_base_of_v<AEntity, T>> * = nullptr>
         T *NewObject(const HName &name)
         {
             return NewObject_Base<T>(name);
@@ -326,7 +366,7 @@ namespace Atlantis
             return NewObject<T>(T::GetClassDataStatic().Name);
         }
 
-        void MarkObjectDead(AObject* object);
+        void MarkObjectDead(AObject *object);
 
         ~AWorld()
         {

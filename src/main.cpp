@@ -65,7 +65,7 @@ AWorld World;
 
 void RegisterTypes()
 {
-    World.RegisterDefault<AEntity, 1000000>();
+    World.RegisterDefault<AEntity>();
     World.RegisterDefault<CPosition>();
     World.RegisterDefault<CColor>();
     World.RegisterDefault<CVelocity>();
