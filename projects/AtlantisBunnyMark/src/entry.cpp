@@ -96,7 +96,18 @@ extern "C"
             int fontSize = 20;
             int textSize = MeasureText(fpsStr.c_str(), fontSize);
 
-            auto bunnyStr = fmt::format("Bunnies: {}", world->GetObjectCountByType("AEntity"));
+            // count entities that are alive
+            auto entities = world->GetEntitiesWithComponents<CPosition, CRenderable>();
+            int count = 0;
+            for (AEntity *e : entities)
+            {
+                if (e->_isAlive)
+                {
+                    count++;
+                }
+            }
+
+            auto bunnyStr = fmt::format("Bunnies: {}", count);
             textSize = std::max(textSize, MeasureText(bunnyStr.c_str(), fontSize));
 
             Color bg = DARKGRAY;
@@ -117,6 +128,30 @@ extern "C"
                 }
             } },
                                     {"CreateBunny"}, {"Physics"});
+        
+        // register a system that will mark for deletion 10 live bunnies if frametime is more than 1 / 60
+        World->RegisterSystem([](AWorld *world)
+                                    {
+            if (GetFrameTime() > 1.0f / 60.0f)
+            {
+                int count = 0;
+                for (AEntity *e : world->GetEntitiesWithComponents<CPosition, CRenderable>())
+                {
+                    if (count >= 10)
+                    {
+                        break;
+                    }
+
+                    if (!e->_isAlive)
+                    {
+                        continue;
+                    }
+
+                    e->MarkObjectDead();
+                    count++;
+                }
+            } },
+                                    {"DeleteBunny"}, {"Physics"});
     }
 
     LIB_EXPORT void SetWorld(AWorld *world)

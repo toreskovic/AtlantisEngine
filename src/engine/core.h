@@ -50,11 +50,19 @@ namespace Atlantis
         // or ignore it (and potentially reuse it when creating new entities / components)
         bool _isAlive = true;
 
+        virtual void MarkObjectDead();
+
         virtual const AClassData &GetClassData() const
         {
             static AClassData classData;
             return classData;
         };
+
+        static AClassData &GetClassDataStatic()
+        {
+            static AClassData classData;
+            return classData;
+        }
 
         template <typename T>
         T GetProperty(const HName &name) const
@@ -98,6 +106,20 @@ namespace Atlantis
     struct AComponent : public AObject
     {
         AEntity *Owner;
+
+        virtual void OnAddedToEntity(AEntity *entity)
+        {
+            Owner = entity;
+        }
+
+        virtual void OnRemovedFromEntity(AEntity *entity)
+        {
+            Owner = nullptr;
+            MarkObjectDead();
+        }
+
+        virtual void MarkObjectDead() override;
+
     };
 
     struct AEntity : public AObject
@@ -108,7 +130,9 @@ namespace Atlantis
         std::vector<HName> ComponentNames;
 
         // used internally to check quickly for components
-        ComponentBitset __componentMask = 0x0;
+        ComponentBitset _componentMask = 0x0;
+
+        virtual void MarkObjectDead() override;
 
         AComponent *GetComponentOfType(const HName &name)
         {
@@ -142,13 +166,15 @@ namespace Atlantis
 
         void AddComponent(AComponent *component);
 
+        void RemoveComponent(AComponent *component);
+
         bool HasComponentOfType(const HName &name);
 
         bool HasComponentsByMask(ComponentBitset mask);
 
         bool HasComponentsOfType(const std::vector<HName> &names);
         //{
-        // return World->GetComponentMaskForComponents(names) == __componentMask;
+        // return World->GetComponentMaskForComponents(names) == _componentMask;
         /*for (int i = 0; i < names.size(); i++)
         {
             if (std::find(ComponentNames.begin(), ComponentNames.end(), names[i]) == ComponentNames.end())
@@ -209,6 +235,50 @@ namespace Atlantis
         }
     };
 
+    template <typename T>
+    struct AObjPtr
+    {
+        AObjPtr(T* ptr)
+        {
+            if (ptr == nullptr)
+            {
+                Clear();
+            }
+            else
+            {
+                _isAssigned = true;
+                _world = ptr->World;
+                _uid = ptr->_uid;
+            }
+        }
+
+        bool IsValid();
+
+        T *Get(bool validate = true);
+
+        T *Get(const HName& name, bool validate = true);
+
+        T *operator->()
+        {
+            return Get();
+        }
+
+        void Clear()
+        {
+            _isAssigned = false;
+            _world = nullptr;
+        }
+
+        // object's ID (currently index)
+        size_t _uid;
+
+        // we can only check for ptr validity once assigned
+        bool _isAssigned = false;
+
+        // cache world from object after assigning
+        AWorld *_world = nullptr;
+    };
+
     struct no_deleter
     {
         void operator()(void *const ptr) const
@@ -222,6 +292,7 @@ namespace Atlantis
 
         static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
         std::map<HName, std::vector<std::unique_ptr<AObject, no_deleter>>, HNameComparer> ObjectLists;
+        std::map<HName, std::vector<AObjPtr<AObject>>> DeadObjects;
         std::vector<std::unique_ptr<ASystem>> Systems;
         AResourceHolder ResourceHolder;
 
@@ -271,6 +342,9 @@ namespace Atlantis
             {
                 ComponentNames.push_back(data.Name);
             }
+
+            ObjectLists[data.Name].reserve(allocatorHelper.Limit);
+            DeadObjects[data.Name].reserve(allocatorHelper.Limit);
         }
 
         template <typename T>
@@ -292,6 +366,19 @@ namespace Atlantis
 
             AClassData classData = CDO->GetClassData();
 
+            // reuse dead objects
+            if (DeadObjects[name].size() > 0)
+            {
+                AObjPtr<AObject> objPtr = DeadObjects[name].back();
+                DeadObjects[name].pop_back();
+
+                T *obj = static_cast<T *>(objPtr.Get(name, false));
+                obj->_isAlive = true;
+
+                return obj;
+            }
+
+            // allocate new objects
             AllocatorMemoryHelper &allocatorHelper = AllocatorHelpers.at(classData.Name);
             if (allocatorHelper.Count >= allocatorHelper.Limit)
             {
@@ -302,6 +389,7 @@ namespace Atlantis
 
                 ObjectLists[name].clear();
                 ObjectLists[name].reserve(allocatorHelper.Limit);
+                DeadObjects[name].reserve(allocatorHelper.Limit);
 
                 for (size_t i = 0; i < allocatorHelper.Count; i++)
                 {
@@ -319,12 +407,15 @@ namespace Atlantis
                     }
                     else if (AComponent *component = dynamic_cast<AComponent *>(objPtr))
                     {
-                        for (int j = 0; j < component->Owner->Components.size(); j++)
+                        if (component->Owner != nullptr)
                         {
-                            if (component->Owner->ComponentNames[j] == classData.Name)
+                            for (int j = 0; j < component->Owner->Components.size(); j++)
                             {
-                                component->Owner->Components[j] = component;
-                                break;
+                                if (component->Owner->ComponentNames[j] == classData.Name)
+                                {
+                                    component->Owner->Components[j] = component;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -441,59 +532,45 @@ namespace Atlantis
         }
     };
 
-    template <typename T>
-    struct AObjPtr
+    template<typename T>
+    inline bool AObjPtr<T>::IsValid()
     {
-        AObjPtr(T* ptr)
+        if (!_isAssigned)
         {
-            if (ptr == nullptr)
-            {
-                Clear();
-            }
-            else
-            {
-                _isAssigned = true;
-                _world = ptr->World;
-                _uid = ptr->_uid;
-            }
+            return false;
         }
 
-        bool IsValid()
-        {
-            if (!_isAssigned)
-            {
-                return false;
-            }
+        T *obj = static_cast<T *>(_world->GetObjectsByName(T::GetClassDataStatic().Name)[_uid].get());
+        return obj->_isAlive;
+    }
 
-            T* obj = static_cast<T *>(_world->GetObjectsByName(T::GetClassDataStatic().Name)[_uid].get());
-            return obj->_isAlive;
-        }
-
-        T *Get()
+    template<typename T>
+    inline T *AObjPtr<T>::Get(bool validate)
+    {
+        if (validate)
         {
             if (!IsValid())
             {
                 return nullptr;
             }
-
-            return static_cast<T *>(_world->GetObjectsByName(T::GetClassDataStatic().Name)[_uid].get());
         }
 
-        void Clear()
+        return static_cast<T *>(_world->GetObjectsByName(T::GetClassDataStatic().Name)[_uid].get());
+    }
+
+    template <typename T>
+    inline T *AObjPtr<T>::Get(const HName &name, bool validate)
+    {
+        if (validate)
         {
-            _isAssigned = false;
-            _world = nullptr;
+            if (!IsValid())
+            {
+                return nullptr;
+            }
         }
 
-        // object's ID (currently index)
-        size_t _uid;
-
-        // we can only check for ptr validity once assigned
-        bool _isAssigned = false;
-
-        // cache world from object after assigning
-        AWorld *_world = nullptr;
-    };
+        return static_cast<T *>(_world->GetObjectsByName(name)[_uid].get());
+    }
 }
 
 #endif

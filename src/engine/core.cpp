@@ -40,6 +40,14 @@ namespace Atlantis
         return l.id == r.id;
     }
 
+    void AObject::MarkObjectDead()
+    {
+        if (World != nullptr)
+        {
+            World->MarkObjectDead(this);
+        }
+    }
+
     nlohmann::json AObject::Serialize()
     {
         nlohmann::json json;
@@ -83,15 +91,59 @@ namespace Atlantis
         }
     }
 
+    void AComponent::MarkObjectDead()
+    {
+        AObject::MarkObjectDead();
+
+        if (Owner != nullptr)
+        {
+            Owner->RemoveComponent(this);
+        }
+    }
+
+    void AEntity::MarkObjectDead()
+    {
+        // remove all components from entity
+        for (AComponent *component : Components)
+        {
+            component->OnRemovedFromEntity(this);
+        }
+
+        Components.clear();
+        ComponentNames.clear();
+
+        _componentMask.reset();
+
+        AObject::MarkObjectDead();
+
+    }
+
     void AEntity::AddComponent(AComponent *component)
     {
-        component->Owner = this;
         Components.push_back(component);
 
         ComponentNames.push_back(component->GetClassData().Name);
         std::sort(ComponentNames.begin(), ComponentNames.end());
 
-        __componentMask = World->GetComponentMaskForComponents(ComponentNames);
+        _componentMask = World->GetComponentMaskForComponents(ComponentNames);
+
+        component->OnAddedToEntity(this);
+    }
+
+    void AEntity::RemoveComponent(AComponent *component)
+    {
+        for (int i = 0; i < Components.size(); i++)
+        {
+            if (Components[i] == component)
+            {
+                Components.erase(Components.begin() + i);
+                ComponentNames.erase(ComponentNames.begin() + i);
+                _componentMask = World->GetComponentMaskForComponents(ComponentNames);
+
+                component->OnRemovedFromEntity(this);
+                break;
+            }
+        }
     }
 
     bool AEntity::HasComponentOfType(const HName &name)
@@ -109,7 +161,7 @@ namespace Atlantis
 
     bool AEntity::HasComponentsByMask(ComponentBitset mask)
     {
-        return (mask & __componentMask) == mask;
+        return (mask & _componentMask) == mask;
     }
 
     bool AEntity::HasComponentsOfType(const std::vector<HName> &names)
@@ -120,6 +172,7 @@ namespace Atlantis
     void AWorld::MarkObjectDead(AObject *object)
     {
         object->_isAlive = false;
+        DeadObjects[object->GetClassData().Name].push_back(object);
     }
 
     void AWorld::RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels)
