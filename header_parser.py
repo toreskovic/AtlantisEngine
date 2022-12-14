@@ -87,7 +87,7 @@ def field_decl(node):
             current_macros.pop(0)
             
             #return f"""PropertyData propData {{ "{node.spelling}", "{node.type.spelling}", offsetof({current_class_name}, {node.spelling}) }};"""
-            return f"""classData.Properties.push_back({{ HName("{node.spelling}"), HName("{node.type.spelling}"), offsetof({current_class_name}, {node.spelling}) }});"""
+            return f"""classData.Properties.push_back({{ AName("{node.spelling}"), AName("{node.type.spelling}"), offsetof({current_class_name}, {node.spelling}) }});"""
     return ""
 
 def method_decl(node):

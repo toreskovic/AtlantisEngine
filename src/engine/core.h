@@ -27,9 +27,9 @@ namespace Atlantis
 {
     struct ASystem;
 
-    struct HNameComparer
+    struct ANameComparer
     {
-        bool operator()(const HName &lhs, const HName &rhs) const
+        bool operator()(const AName &lhs, const AName &rhs) const
         {
             return lhs < rhs;
         }
@@ -65,7 +65,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        T GetProperty(const HName &name) const
+        T GetProperty(const AName &name) const
         {
             const AClassData &classData = GetClassData();
             for (auto &prop : classData.Properties)
@@ -82,7 +82,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        void SetProperty(const HName &name, T value)
+        void SetProperty(const AName &name, T value)
         {
             const AClassData &classData = GetClassData();
             for (auto &prop : classData.Properties)
@@ -127,18 +127,18 @@ namespace Atlantis
         DEF_CLASS();
 
         std::vector<AComponent *> Components;
-        std::vector<HName> ComponentNames;
+        std::vector<AName> ComponentNames;
 
         // used internally to check quickly for components
         ComponentBitset _componentMask = 0x0;
 
         virtual void MarkObjectDead() override;
 
-        AComponent *GetComponentOfType(const HName &name)
+        AComponent *GetComponentOfType(const AName &name)
         {
             for (auto *comp : Components)
             {
-                if (HName(comp->GetClassData().Name) == name)
+                if (AName(comp->GetClassData().Name) == name)
                 {
                     return comp;
                 }
@@ -151,7 +151,7 @@ namespace Atlantis
         T *GetComponentOfType()
         {
             T tempComponent;
-            HName name = tempComponent.GetClassData().Name;
+            AName name = tempComponent.GetClassData().Name;
 
             for (auto *comp : Components)
             {
@@ -168,11 +168,11 @@ namespace Atlantis
 
         void RemoveComponent(AComponent *component);
 
-        bool HasComponentOfType(const HName &name);
+        bool HasComponentOfType(const AName &name);
 
         bool HasComponentsByMask(ComponentBitset mask);
 
-        bool HasComponentsOfType(const std::vector<HName> &names);
+        bool HasComponentsOfType(const std::vector<AName> &names);
         //{
         // return World->GetComponentMaskForComponents(names) == _componentMask;
         /*for (int i = 0; i < names.size(); i++)
@@ -256,7 +256,7 @@ namespace Atlantis
 
         T *Get(bool validate = true);
 
-        T *Get(const HName& name, bool validate = true);
+        T *Get(const AName& name, bool validate = true);
 
         T *operator->()
         {
@@ -288,15 +288,15 @@ namespace Atlantis
 
     struct AWorld
     {
-        std::map<HName, AClassData, HNameComparer> CData;
+        std::map<AName, AClassData, ANameComparer> CData;
 
-        static std::map<HName, std::unique_ptr<AObject>, HNameComparer> CDOs;
-        std::map<HName, std::vector<std::unique_ptr<AObject, no_deleter>>, HNameComparer> ObjectLists;
-        std::map<HName, std::vector<AObjPtr<AObject>>> DeadObjects;
+        static std::map<AName, std::unique_ptr<AObject>, ANameComparer> CDOs;
+        std::map<AName, std::vector<std::unique_ptr<AObject, no_deleter>>, ANameComparer> ObjectLists;
+        std::map<AName, std::vector<AObjPtr<AObject>>> DeadObjects;
         std::vector<std::unique_ptr<ASystem>> Systems;
         AResourceHolder ResourceHolder;
 
-        std::vector<HName> ComponentNames;
+        std::vector<AName> ComponentNames;
 
         struct AllocatorMemoryHelper
         {
@@ -306,8 +306,8 @@ namespace Atlantis
             size_t Increment;
         };
 
-        std::map<HName, AllocatorMemoryHelper, HNameComparer> AllocatorHelpers;
-        // std::map<HName, size_t, HNameComparer> ObjAllocStart;
+        std::map<AName, AllocatorMemoryHelper, ANameComparer> AllocatorHelpers;
+        // std::map<AName, size_t, ANameComparer> ObjAllocStart;
 
         /*void RegisterClass(AObject *obj)
         {
@@ -354,13 +354,13 @@ namespace Atlantis
         }
 
         template <typename T>
-        static const T *GetCDO(const HName &name)
+        static const T *GetCDO(const AName &name)
         {
             return dynamic_cast<T *>(CDOs[name].get());
         }
 
         template <typename T>
-        T *NewObject_Base(const HName &name)
+        T *NewObject_Base(const AName &name)
         {
             const T *CDO = GetCDO<T>(name);
 
@@ -443,7 +443,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        T *NewObject(const HName &name)
+        T *NewObject(const AName &name)
         {
             T *obj = NewObject_Base<T>(name);
 
@@ -452,14 +452,14 @@ namespace Atlantis
 
         /*template <typename T,
                   std::enable_if_t<!std::is_base_of_v<AEntity, T>> * = nullptr>
-        T *NewObject(const HName &name)
+        T *NewObject(const AName &name)
         {
             return NewObject_Base<T>(name);
         }
 
         template <typename T,
                   std::enable_if_t<std::is_base_of_v<AEntity, T>> * = nullptr>
-        T *NewObject(const HName &name)
+        T *NewObject(const AName &name)
         {
             T *obj = NewObject_Base<T>(name);
             obj->World = this;
@@ -483,34 +483,34 @@ namespace Atlantis
             }
         }
 
-        void RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels = {});
+        void RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels = {});
 
-        void RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<HName> &labels = {}, const std::vector<HName> &beforeLabels = {});
+        void RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels = {}, const std::vector<AName> &beforeLabels = {});
 
         void ProcessSystems();
 
-        const std::vector<std::unique_ptr<AObject, no_deleter>> &GetObjectsByName(const HName &objectName);
+        const std::vector<std::unique_ptr<AObject, no_deleter>> &GetObjectsByName(const AName &objectName);
 
-        const std::vector<AEntity *> GetEntitiesWithComponents(std::vector<HName> componentsNames);
+        const std::vector<AEntity *> GetEntitiesWithComponents(std::vector<AName> componentsNames);
 
-        ComponentBitset GetComponentMaskForComponents(std::vector<HName> componentsNames);
+        ComponentBitset GetComponentMaskForComponents(std::vector<AName> componentsNames);
 
-        size_t GetObjectCountByType(const HName &objectName);
+        size_t GetObjectCountByType(const AName &objectName);
 
         void Clear();
 
         template <typename T>
-        void GetNamesOfComponents(std::vector<HName> &names)
+        void GetNamesOfComponents(std::vector<AName> &names)
         {
             static T tmp;
-            static HName tmpName = tmp.GetClassData().Name;
+            static AName tmpName = tmp.GetClassData().Name;
             names.push_back(tmpName);
         }
 
         template <typename T1, typename T2, typename... Types>
-        void GetNamesOfComponents(std::vector<HName> &names)
+        void GetNamesOfComponents(std::vector<AName> &names)
         {
-            static HName tmpName = T1::GetClassDataStatic().Name;
+            static AName tmpName = T1::GetClassDataStatic().Name;
             names.push_back(tmpName);
 
             GetNamesOfComponents<T2, Types...>(names);
@@ -519,7 +519,7 @@ namespace Atlantis
         template <typename T, typename... Types>
         const std::vector<AEntity *> GetEntitiesWithComponents()
         {
-            static std::vector<HName> names;
+            static std::vector<AName> names;
             if (names.size() == 0)
             {
                 // TODO: make less arbitrary
@@ -559,7 +559,7 @@ namespace Atlantis
     }
 
     template <typename T>
-    inline T *AObjPtr<T>::Get(const HName &name, bool validate)
+    inline T *AObjPtr<T>::Get(const AName &name, bool validate)
     {
         if (validate)
         {

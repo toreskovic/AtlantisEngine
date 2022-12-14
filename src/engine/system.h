@@ -11,7 +11,7 @@ namespace Atlantis
 
   struct ASystem
   {
-    std::unordered_set<HName, HNameHashFunction> Labels;
+    std::unordered_set<AName, ANameHashFunction> Labels;
 
     virtual void Process(AWorld *world);
   };

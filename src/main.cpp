@@ -1,18 +1,3 @@
-/*******************************************************************************************
- *
- *   raylib [core] example - Basic window (adapted for HTML5 platform)
- *
- *   This example is prepared to compile for PLATFORM_WEB, PLATFORM_DESKTOP and PLATFORM_RPI
- *   As you will notice, code structure is slightly diferent to the other examples...
- *   To compile it for PLATFORM_WEB just uncomment #define PLATFORM_WEB at beginning
- *
- *   This example has been created using raylib 1.3 (www.raylib.com)
- *   raylib is licensed under an unmodified zlib/libpng license (View raylib.h for details)
- *
- *   Copyright (c) 2015 Ramon Santamaria (@raysan5)
- *
- ********************************************************************************************/
-
 #include <filesystem>
 #include <iostream>
 #include <fstream>
@@ -32,9 +17,7 @@
 #include "fmt/core.h"
 
 #include <omp.h>
-//----------------------------------------------------------------------------------
-// Global Variables Definition
-//----------------------------------------------------------------------------------
+
 using namespace Atlantis;
 
 int screenWidth = 800;
@@ -52,10 +35,12 @@ std::function<bool()> HotReloadTimer = []()
 
 std::string LibTempName = "";
 
+bool GameLibInitialized = false;
+
 // dylib loading
 void InitDylibTest();
-void DoDylibTest();
-void TryUnloadDylib();
+void LoadGameLib();
+void TryUnloadGameLib();
 
 void PreHotReload();
 void PostHotReload();
@@ -75,24 +60,16 @@ void RegisterTypes()
 void RegisterSystems()
 {
     World.RegisterSystem([](AWorld *world)
-                             {
+                         {
         BeginDrawing();
         ClearBackground(RAYWHITE); },
-                             {"BeginRender"}, {"Render"});
+                         {"BeginRender"}, {"Render"});
 
     World.RegisterSystem([](AWorld *world)
-                             { EndDrawing(); },
-                             {"EndRender"});
+                         { EndDrawing(); },
+                         {"EndRender"});
 }
 
-//----------------------------------------------------------------------------------
-// Module Functions Declaration
-//----------------------------------------------------------------------------------
-void UpdateDrawFrame(void); // Update and Draw one frame
-
-//----------------------------------------------------------------------------------
-// Main Enry Point
-//----------------------------------------------------------------------------------
 int main()
 {
     auto cpuThreadCount = omp_get_num_procs();
@@ -120,7 +97,7 @@ int main()
 
     LibDir = "./projects/" + LibName;
 
-    // Initialization
+    // Raylib Initialization
     //--------------------------------------------------------------------------------------
     InitWindow(screenWidth, screenHeight, "AtlantisEngine");
 
@@ -138,45 +115,26 @@ int main()
             HotReloadTimer = Timer(500);
         });
 
-
-    /*auto &comps = World.GetAllComponentsByName(HName("renderable"));
-    std::cout << "-----------" << std::endl;
-    for (auto &comp : comps)
-    {
-        renderable *ren = static_cast<renderable *>(comp.get());
-        std::cout << ren->renderType << std::endl;
-    }*/
-
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
 #else
-    // SetTargetFPS(60); // Set our game to run at 60 frames-per-second
-    //--------------------------------------------------------------------------------------
-
-    CPosition p;
-    AClassData d = p.GetClassData();
-    std::cout << d.Properties[0].Offset << std::endl;
-    std::cout << d.Properties[1].Offset << std::endl;
-
-    // PreHotReload();
-    // PostHotReload();
 
     // Main game loop
-    while (!WindowShouldClose()) // Detect window close button or ESC key
+    //--------------------------------------------------------------------------------------
+    while (!WindowShouldClose())
     {
         if (HotReloadTimer())
         {
-            DoDylibTest();
+            LoadGameLib();
         }
 
-        UpdateDrawFrame();
+        World.ProcessSystems();
     }
 #endif
 
     // De-Initialization
     World.ResourceHolder.Resources.clear();
-    //--------------------------------------------------------------------------------------
-    CloseWindow(); // Close window and OpenGL context
+    CloseWindow();
     //--------------------------------------------------------------------------------------
 
     if (LibPtr != nullptr)
@@ -184,34 +142,18 @@ int main()
         auto onShutdown = LibPtr->get_function<void()>("OnShutdown");
         onShutdown();
     }
-    
-    TryUnloadDylib();
+
+    TryUnloadGameLib();
     return 0;
-}
-
-//----------------------------------------------------------------------------------
-// Module Functions Definition
-//----------------------------------------------------------------------------------
-void UpdateDrawFrame(void)
-{
-    // Update
-    //----------------------------------------------------------------------------------
-    // TODO: Update your variables here
-    //----------------------------------------------------------------------------------
-
-    // Draw
-    //----------------------------------------------------------------------------------
-    World.ProcessSystems();
-    //----------------------------------------------------------------------------------
 }
 
 void InitDylibTest()
 {
     srand(time(NULL));
-    DoDylibTest();
+    LoadGameLib();
 }
 
-void TryUnloadDylib()
+void TryUnloadGameLib()
 {
     if (!LibTempName.empty() && LibPtr != nullptr)
     {
@@ -239,7 +181,6 @@ void PreHotReload()
         serialized["Entities"].push_back(entity->Serialize());
     }
 
-    // std::cout << std::setw(4) << serialized << std::endl;
     _serialized = serialized;
 }
 
@@ -250,10 +191,9 @@ void PostHotReload()
     RegisterSystems();
 
     nlohmann::json serialized = _serialized;
-    // std::cout << std::setw(4) << serialized << std::endl;
     for (auto &ent : serialized["Entities"])
     {
-        AEntity *e = World.NewObject<AEntity>(HName("AEntity"));
+        AEntity *e = World.NewObject<AEntity>(AName("AEntity"));
 
         for (auto &comp : ent["Components"])
         {
@@ -267,21 +207,19 @@ void PostHotReload()
     std::cout << "posthotreload" << std::endl;
 }
 
-bool GameInitialized = false;
-
-void DoDylibTest()
+void LoadGameLib()
 {
     HotReloadTimer = []()
     { return false; };
 
-    if (GameInitialized)
+    if (GameLibInitialized)
     {
         PreHotReload();
         auto preHotReload = LibPtr->get_function<void()>("PreHotReload");
         preHotReload();
     }
 
-    TryUnloadDylib();
+    TryUnloadGameLib();
 
     // copy lib to temp one
     LibTempName = LibName + std::to_string(rand());
@@ -294,16 +232,16 @@ void DoDylibTest()
     auto setWorld = LibPtr->get_function<void(AWorld *)>("SetWorld");
     setWorld(&World);
 
-    if (GameInitialized)
+    if (GameLibInitialized)
     {
         PostHotReload();
         auto postHotReload = LibPtr->get_function<void()>("PostHotReload");
         postHotReload();
     }
 
-    if (!GameInitialized)
+    if (!GameLibInitialized)
     {
-        GameInitialized = true;
+        GameLibInitialized = true;
 
         auto init = LibPtr->get_function<void()>("Init");
         init();

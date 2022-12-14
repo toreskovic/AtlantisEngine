@@ -5,7 +5,7 @@ namespace Atlantis
 {
     void SRenderer::Process(AWorld *world)
     {
-        //static const std::vector<HName> components = {"CRenderable", "CPosition", "CColor"};
+        //static const std::vector<AName> components = {"CRenderable", "CPosition", "CColor"};
         //const auto& entities = world->GetEntitiesWithComponents(components);
         const auto& entities = world->GetEntitiesWithComponents<CRenderable, CPosition, CColor>();
         for (auto* e: entities)
