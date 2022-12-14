@@ -52,6 +52,8 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(fmt)
 
+include(lua-lib.cmake)
+
 # Our Project
 include_directories(src)
 
@@ -72,6 +74,8 @@ target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
 
 set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${PROJECT_NAME} fmt)
+
+target_link_libraries(${PROJECT_NAME} lua::lualib)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)

@@ -42,6 +42,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(fmt)
 
+
 file(GLOB_RECURSE sources      src/*.cpp src/*.h)
 
 add_library(${PROJECT_NAME} SHARED
@@ -59,3 +60,7 @@ include_directories(../../src)
 
 # temp to get rid of warnings
 add_definitions(-w)
+
+add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD
+                  COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    ${CMAKE_SOURCE_DIR}/projects/${PROJECT_NAME}/lua $<TARGET_FILE_DIR:${PROJECT_NAME}>/lua)

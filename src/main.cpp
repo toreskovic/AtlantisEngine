@@ -32,6 +32,8 @@
 #include "fmt/core.h"
 
 #include <omp.h>
+
+#include "engine/scripting/luaRuntime.h"
 //----------------------------------------------------------------------------------
 // Global Variables Definition
 //----------------------------------------------------------------------------------
@@ -62,6 +64,8 @@ void PostHotReload();
 
 // engine modules
 AWorld World;
+
+ALuaRuntime LuaRuntime;
 
 void RegisterTypes()
 {
@@ -137,6 +141,10 @@ int main()
         {
             HotReloadTimer = Timer(500);
         });
+    
+
+    LuaRuntime.InitLua();
+    LuaRuntime.RunScript(LibDir + DirSlash + "lua" + DirSlash + "main.lua");
 
 
     /*auto &comps = World.GetAllComponentsByName(HName("renderable"));
@@ -175,6 +183,7 @@ int main()
 
     // De-Initialization
     World.ResourceHolder.Resources.clear();
+    LuaRuntime.UnloadLua();
     //--------------------------------------------------------------------------------------
     CloseWindow(); // Close window and OpenGL context
     //--------------------------------------------------------------------------------------
