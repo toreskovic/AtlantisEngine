@@ -15,17 +15,17 @@
 
 namespace Atlantis
 {
-    struct HName
+    struct AName
     {
         std::vector<char> Name;
 
         size_t Hash = 0;
 
-        HName()
+        AName()
         {
         }
 
-        HName(std::string name)
+        AName(std::string name)
         {
             Name = { name.begin(), name.end() };
 
@@ -37,7 +37,7 @@ namespace Atlantis
             Hash = std::hash<std::string>{}(name);
         }
 
-        HName(const char *name)
+        AName(const char *name)
         {
             std::string n = name;
             Name = { n.begin(), n.end() };
@@ -58,21 +58,21 @@ namespace Atlantis
 
         bool operator==(const char *name) const
         {
-            return Hash == HName(name).Hash;
+            return Hash == AName(name).Hash;
             // return Name == name;
         }
 
-        bool operator==(const HName &other) const
+        bool operator==(const AName &other) const
         {
             return Hash == other.Hash;
         }
 
-        bool operator<(const HName &other) const
+        bool operator<(const AName &other) const
         {
             return Hash < other.Hash;
         }
 
-        friend std::ostream &operator<<(std::ostream &os, const HName &name)
+        friend std::ostream &operator<<(std::ostream &os, const AName &name)
         {
             std::string n = { name.Name.begin(), name.Name.end() };
             return std::operator<<(os, n);
@@ -85,10 +85,10 @@ namespace Atlantis
         }
     };
 
-    class HNameHashFunction
+    class ANameHashFunction
     {
     public:
-        size_t operator()(const HName &p) const
+        size_t operator()(const AName &p) const
         {
             return p.Hash;
         }
@@ -151,22 +151,22 @@ namespace Atlantis
 
     struct APropertyData
     {
-        HName Name;
-        HName Type;
+        AName Name;
+        AName Type;
         size_t Offset;
     };
 
     struct AMethodData
     {
-        HName Name;
-        HName ReturnType;
-        std::vector<HName> ParamTypes;
+        AName Name;
+        AName ReturnType;
+        std::vector<AName> ParamTypes;
         // std::function<std::any(void *)> FunctionHelper;
     };
 
     struct AClassData
     {
-        HName Name;
+        AName Name;
         std::vector<APropertyData> Properties;
         std::vector<AMethodData> Methods;
         size_t Size;
@@ -180,19 +180,19 @@ namespace Atlantis
 
 NLOHMANN_JSON_NAMESPACE_BEGIN
 template <>
-struct adl_serializer<Atlantis::HName>
+struct adl_serializer<Atlantis::AName>
 {
-    static void to_json(json &j, const Atlantis::HName &name)
+    static void to_json(json &j, const Atlantis::AName &name)
     {
         j = {{"Name", name.GetName()}, {"Hash", name.Hash}};
     }
 
-    static void from_json(const json &j, Atlantis::HName &name)
+    static void from_json(const json &j, Atlantis::AName &name)
     {
         std::string s;
         j.at("Name").get_to(s);
         
-        name = Atlantis::HName(s);
+        name = Atlantis::AName(s);
     }
 };
 NLOHMANN_JSON_NAMESPACE_END

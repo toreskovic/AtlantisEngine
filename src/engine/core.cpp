@@ -20,7 +20,7 @@
 
 namespace Atlantis
 {
-    std::map<HName, std::unique_ptr<AObject>, HNameComparer> AWorld::CDOs{};
+    std::map<AName, std::unique_ptr<AObject>, ANameComparer> AWorld::CDOs{};
 
     template <typename T>
     bool Helper_IsEqual(const T &l, const T &r)
@@ -64,7 +64,7 @@ namespace Atlantis
             SERIALIZE_PROP_HELPER(Color);
             SERIALIZE_PROP_HELPER(Texture2D);
             SERIALIZE_PROP_HELPER(std::string);
-            SERIALIZE_PROP_HELPER(Atlantis::HName);
+            SERIALIZE_PROP_HELPER(Atlantis::AName);
             SERIALIZE_PROP_HELPER(Atlantis::AResourceHandle);
 
             json["Properties"].push_back(propJson);
@@ -86,7 +86,7 @@ namespace Atlantis
             DESERIALIZE_PROP_HELPER(Color);
             DESERIALIZE_PROP_HELPER(Texture2D);
             DESERIALIZE_PROP_HELPER(std::string);
-            DESERIALIZE_PROP_HELPER(Atlantis::HName);
+            DESERIALIZE_PROP_HELPER(Atlantis::AName);
             DESERIALIZE_PROP_HELPER(Atlantis::AResourceHandle);
         }
     }
@@ -146,9 +146,9 @@ namespace Atlantis
         }
     }
 
-    bool AEntity::HasComponentOfType(const HName &name)
+    bool AEntity::HasComponentOfType(const AName &name)
     {
-        for (const HName &compName : ComponentNames)
+        for (const AName &compName : ComponentNames)
         {
             if (compName == name)
             {
@@ -164,7 +164,7 @@ namespace Atlantis
         return (mask & _componentMask) == mask;
     }
 
-    bool AEntity::HasComponentsOfType(const std::vector<HName> &names)
+    bool AEntity::HasComponentsOfType(const std::vector<AName> &names)
     {
         return HasComponentsByMask(World->GetComponentMaskForComponents(names));
     }
@@ -175,7 +175,7 @@ namespace Atlantis
         DeadObjects[object->GetClassData().Name].push_back(object);
     }
 
-    void AWorld::RegisterSystem(ASystem *system, const std::vector<HName> &beforeLabels)
+    void AWorld::RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels)
     {
         std::unique_ptr<ASystem> systemPtr(system);
 
@@ -185,7 +185,7 @@ namespace Atlantis
             {
                 const ASystem *sys = Systems[i].get();
 
-                for (const HName &label : beforeLabels)
+                for (const AName &label : beforeLabels)
                 {
                     if (sys->Labels.count(label))
                     {
@@ -199,7 +199,7 @@ namespace Atlantis
         Systems.push_back(std::move(systemPtr));
     }
 
-    void AWorld::RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<HName> &labels, const std::vector<HName> &beforeLabels)
+    void AWorld::RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels, const std::vector<AName> &beforeLabels)
     {
         ALambdaSystem *system = new ALambdaSystem();
         system->Lambda = lambda;
@@ -216,19 +216,19 @@ namespace Atlantis
         }
     }
 
-    const std::vector<std::unique_ptr<AObject, no_deleter>> &AWorld::GetObjectsByName(const HName &objectName)
+    const std::vector<std::unique_ptr<AObject, no_deleter>> &AWorld::GetObjectsByName(const AName &objectName)
     {
         const std::vector<std::unique_ptr<AObject, no_deleter>> &objList = ObjectLists[objectName];
 
         return objList;
     }
 
-    size_t AWorld::GetObjectCountByType(const HName &objectName)
+    size_t AWorld::GetObjectCountByType(const AName &objectName)
     {
         return GetObjectsByName(objectName).size();
     }
 
-    const std::vector<AEntity *> AWorld::GetEntitiesWithComponents(std::vector<HName> componentNames)
+    const std::vector<AEntity *> AWorld::GetEntitiesWithComponents(std::vector<AName> componentNames)
     {
         std::vector<AEntity *> intersection;
         const auto &entities = GetObjectsByName("AEntity");
@@ -253,7 +253,7 @@ namespace Atlantis
         return intersection;
     }
 
-    ComponentBitset AWorld::GetComponentMaskForComponents(std::vector<HName> componentsNames)
+    ComponentBitset AWorld::GetComponentMaskForComponents(std::vector<AName> componentsNames)
     {
         ComponentBitset ret = 0x0;
 
@@ -274,6 +274,7 @@ namespace Atlantis
         CData.clear();
         CDOs.clear();
         ObjectLists.clear();
+        DeadObjects.clear();
         Systems.clear();
 
         for (auto thing : AllocatorHelpers)
