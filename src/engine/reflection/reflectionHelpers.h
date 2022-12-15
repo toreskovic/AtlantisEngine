@@ -83,6 +83,11 @@ namespace Atlantis
             // return Hash > 0 && !Name.empty();
             return Hash > 0;
         }
+
+        static AName None()
+        {
+            return AName();
+        }
     };
 
     class ANameHashFunction

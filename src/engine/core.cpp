@@ -115,7 +115,6 @@ namespace Atlantis
         _componentMask.reset();
 
         AObject::MarkObjectDead();
-
     }
 
     void AEntity::AddComponent(AComponent *component)
@@ -251,6 +250,39 @@ namespace Atlantis
         }
 
         return intersection;
+    }
+
+    void AWorld::ForEntitiesWithComponents(std::vector<AName> componentsNames, std::function<void(AEntity *)> lambda, bool parallel)
+    {
+        const auto &entities = GetObjectsByName("AEntity");
+
+        ComponentBitset componentMask = GetComponentMaskForComponents(componentsNames);
+
+        if (parallel)
+        {
+#pragma omp parallel for
+            for (auto &entityObj : entities)
+            {
+                AEntity *entity = static_cast<AEntity *>(entityObj.get());
+
+                if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
+                {
+                    lambda(entity);
+                }
+            }
+        }
+        else
+        {
+            for (auto &entityObj : entities)
+            {
+                AEntity *entity = static_cast<AEntity *>(entityObj.get());
+
+                if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
+                {
+                    lambda(entity);
+                }
+            }
+        }
     }
 
     ComponentBitset AWorld::GetComponentMaskForComponents(std::vector<AName> componentsNames)

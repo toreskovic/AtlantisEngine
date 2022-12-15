@@ -318,13 +318,15 @@ namespace Atlantis
         }*/
 
         template <typename T, size_t Amount, size_t Increment = Amount>
-        void RegisterDefault()
+        void RegisterDefault(AName name = AName::None())
         {
             T obj;
             AClassData data = obj.GetClassData();
-            CData.insert_or_assign(data.Name, data);
+            AName objName = name == AName::None() ? data.Name : name;
 
-            CDOs.insert_or_assign(data.Name, std::make_unique<T>(obj));
+            CData.insert_or_assign(objName, data);
+
+            CDOs.insert_or_assign(objName, std::make_unique<T>(obj));
 
             size_t memBlock = (size_t)malloc(Amount * data.Size);
 
@@ -334,23 +336,23 @@ namespace Atlantis
             allocatorHelper.Limit = Amount;
             allocatorHelper.Increment = Increment;
 
-            AllocatorHelpers.insert_or_assign(data.Name, allocatorHelper);
+            AllocatorHelpers.insert_or_assign(objName, allocatorHelper);
             // ObjAllocStart.emplace(data.Name, memBlock);
 
             T *objPtr = &obj;
             if (dynamic_cast<AComponent *>(objPtr) != nullptr)
             {
-                ComponentNames.push_back(data.Name);
+                ComponentNames.push_back(objName);
             }
 
-            ObjectLists[data.Name].reserve(allocatorHelper.Limit);
-            DeadObjects[data.Name].reserve(allocatorHelper.Limit);
+            ObjectLists[objName].reserve(allocatorHelper.Limit);
+            DeadObjects[objName].reserve(allocatorHelper.Limit);
         }
 
         template <typename T>
-        void RegisterDefault()
+        void RegisterDefault(AName name = AName::None())
         {
-            RegisterDefault<T, 10000>();
+            RegisterDefault<T, 10000>(name);
         }
 
         template <typename T>
@@ -492,6 +494,8 @@ namespace Atlantis
         const std::vector<std::unique_ptr<AObject, no_deleter>> &GetObjectsByName(const AName &objectName);
 
         const std::vector<AEntity *> GetEntitiesWithComponents(std::vector<AName> componentsNames);
+
+        void ForEntitiesWithComponents(std::vector<AName> componentsNames, std::function<void(AEntity *)> lambda, bool parallel = false);
 
         ComponentBitset GetComponentMaskForComponents(std::vector<AName> componentsNames);
 
