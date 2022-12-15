@@ -534,6 +534,21 @@ namespace Atlantis
 
             return GetEntitiesWithComponents(names);
         }
+
+        template <typename T, typename... Types>
+        void ForEntitiesWithComponents(std::function<void(AEntity *)> lambda, bool parallel = false)
+        {
+            static std::vector<AName> names;
+            if (names.size() == 0)
+            {
+                // TODO: make less arbitrary
+                names.reserve(8);
+
+                GetNamesOfComponents<T, Types...>(names);
+            }
+
+            ForEntitiesWithComponents(names, lambda, parallel);
+        }
     };
 
     template<typename T>
