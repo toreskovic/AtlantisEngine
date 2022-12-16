@@ -1,13 +1,20 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
-#include "raylib.h"
+#include "rayWrapper.h"
+#include <string>
 
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
 #endif
 
-#include "helpers.h"
+#if defined(_WIN32)
+#define NOGDI // All GDI defines and routines
+#define NOUSER
+// Type required before windows.h inclusion
+typedef struct tagMSG *LPMSG; // All USER defines and routines
+#endif
+
 #include "dylib.hpp"
 #include "third-party/FileWatch.h"
 #include "timer.h"
@@ -18,6 +25,12 @@
 
 #include <omp.h>
 
+#if defined(_WIN32) // raylib uses these names as function parameters
+#undef near
+#undef far
+#endif
+
+#include "helpers.h"
 #include "engine/scripting/luaRuntime.h"
 
 using namespace Atlantis;
@@ -74,7 +87,22 @@ void RegisterSystems()
                          {"EndRender"});
 }
 
+void InitStuffTmp();
+
+#if defined(_WIN32)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char *pCmdLine, int nCmdShow)
+{
+    InitStuffTmp();
+    return 0;
+}
+#else
 int main()
+{
+    InitStuffTmp();
+}
+#endif
+
+void InitStuffTmp()
 {
     auto cpuThreadCount = omp_get_num_procs();
     if (cpuThreadCount == 0)
@@ -99,7 +127,7 @@ int main()
     std::ifstream projectFile("./project.aeng");
     std::getline(projectFile, LibName);
 
-    LibDir = "./projects/" + LibName;
+    LibDir = Helpers::GetExeDirectory().string() + "projects/" + LibName;
 
     // Raylib Initialization
     //--------------------------------------------------------------------------------------
@@ -118,7 +146,6 @@ int main()
         {
             HotReloadTimer = Timer(500);
         });
-    
 
     LuaRuntime.InitLua();
     LuaRuntime.SetWorld(&World);
@@ -154,7 +181,6 @@ int main()
     }
 
     TryUnloadGameLib();
-    return 0;
 }
 
 void InitDylibTest()
@@ -232,7 +258,7 @@ void LoadGameLib()
     TryUnloadGameLib();
 
     // copy lib to temp one
-    LibTempName = LibName + std::to_string(rand());
+    LibTempName = LibName + std::to_string(rand()) + dylib::filename_components::suffix;
 
     std::filesystem::copy_file(FinalLibName, LibDir + DirSlash + LibTempName);
 

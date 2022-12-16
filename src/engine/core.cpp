@@ -20,7 +20,7 @@
 
 namespace Atlantis
 {
-    std::map<AName, std::unique_ptr<AObject>, ANameComparer> AWorld::CDOs{};
+    //std::map<AName, std::unique_ptr<AObject>, ANameComparer> AWorld::CDOs{};
 
     template <typename T>
     bool Helper_IsEqual(const T &l, const T &r)
@@ -58,7 +58,7 @@ namespace Atlantis
         for (const auto &propData : classData.Properties)
         {
             nlohmann::json propJson = {{"Name", propData.Name.GetName()}, {"Type", propData.Type.GetName()}, {"Offset", propData.Offset}};
-            const AObject *cdo = AWorld::GetCDO<AObject>(classData.Name);
+            const AObject *cdo = World->GetCDO<AObject>(classData.Name);
 
             SERIALIZE_PROP_HELPER(float);
             SERIALIZE_PROP_HELPER(Color);
@@ -260,7 +260,7 @@ namespace Atlantis
 
         if (parallel)
         {
-#pragma omp parallel for
+//#pragma omp parallel for
             for (auto &entityObj : entities)
             {
                 AEntity *entity = static_cast<AEntity *>(entityObj.get());
@@ -289,7 +289,7 @@ namespace Atlantis
     {
         ComponentBitset ret = 0x0;
 
-        for (uint i = 0; i < componentsNames.size(); i++)
+        for (uint32_t i = 0; i < componentsNames.size(); i++)
         {
             auto it = std::find(ComponentNames.begin(), ComponentNames.end(), componentsNames[i]);
             if (it != ComponentNames.end())

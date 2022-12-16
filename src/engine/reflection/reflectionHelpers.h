@@ -5,7 +5,7 @@
 #include <functional>
 #include <map>
 #include "nlohmann/json.hpp"
-#include "raylib.h"
+#include "rayWrapper.h"
 
 #define __DEF_CLASS_HELPER_1(line) __DEF_CLASS_HELPER_L_##line()
 #define __DEF_CLASS_HELPER_2(line) __DEF_CLASS_HELPER_1(line)

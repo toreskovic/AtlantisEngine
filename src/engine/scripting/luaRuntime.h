@@ -1,3 +1,6 @@
+#ifndef LUARUNTIME_H
+#define LUARUNTIME_H
+
 #include <sol/sol.hpp>
 #include <iostream>
 #include <filesystem>
@@ -242,3 +245,4 @@ namespace Atlantis
         }
     };
 }
+#endif

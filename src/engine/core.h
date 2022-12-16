@@ -20,6 +20,7 @@
 
 #include "reflection/reflectionHelpers.h"
 #include "baseTypeSerialization.h"
+#include "helpers.h"
 #include "./generated/core.gen.h"
 
 // TODO: arbitrary number, make it configurable and / or larger by default
@@ -241,7 +242,7 @@ namespace Atlantis
                 return ret;
             }
 
-            Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture(path.c_str()))));
+            Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetExeDirectory().string() + path).c_str()))));
 
             AResourceHandle ret(Resources.at(path).get());
             return ret;
@@ -303,7 +304,7 @@ namespace Atlantis
     {
         std::map<AName, AClassData, ANameComparer> CData;
 
-        static std::map<AName, std::unique_ptr<AObject>, ANameComparer> CDOs;
+        std::map<AName, std::unique_ptr<AObject>, ANameComparer> CDOs;
         std::map<AName, std::vector<std::unique_ptr<AObject, no_deleter>>, ANameComparer> ObjectLists;
         std::map<AName, std::vector<AObjPtr<AObject>>> DeadObjects;
         std::vector<std::unique_ptr<ASystem>> Systems;
@@ -369,7 +370,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        static const T *GetCDO(const AName &name)
+        const T *GetCDO(const AName &name)
         {
             return dynamic_cast<T *>(CDOs[name].get());
         }

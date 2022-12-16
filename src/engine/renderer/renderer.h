@@ -1,7 +1,7 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#include "raylib.h"
+#include "rayWrapper.h"
 
 #include "engine/reflection/reflectionHelpers.h"
 #include "engine/core.h"
@@ -66,7 +66,7 @@ namespace Atlantis
 
     struct SRenderer : public ASystem
     {
-        virtual void Process(AWorld* world) override;
+        virtual void Process(AWorld *world) override;
     };
 }
 

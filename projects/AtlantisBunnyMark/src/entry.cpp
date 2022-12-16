@@ -1,6 +1,6 @@
+#include "engine/reflection/reflectionHelpers.h"
 #include "helpers.h"
 #include "game.h"
-#include "engine/reflection/reflectionHelpers.h"
 #include "engine/core.h"
 #include "engine/renderer/renderer.h"
 #include "timer.h"
@@ -192,7 +192,7 @@ extern "C"
         SetWindowTitle("AtlantisEngine - BunnyMark");
         SetWindowState(FLAG_WINDOW_RESIZABLE);
 
-        bunnyHandle = World->ResourceHolder.GetTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png");
+        bunnyHandle = World->ResourceHolder.GetTexture("Assets/wabbit_alpha.png");
 
         RegisterSystems();
     }

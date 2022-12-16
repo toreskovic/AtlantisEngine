@@ -22,6 +22,7 @@ if (NOT raylib_FOUND) # If there's none, fetch and build raylib
     set(FETCHCONTENT_QUIET NO)
     FetchContent_Populate(raylib)
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "Build raylib as a shared library" FORCE)
     add_subdirectory(${raylib_SOURCE_DIR} ${raylib_BINARY_DIR})
   endif()
 endif()
@@ -44,13 +45,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(nlohmann_json)
 
-FetchContent_Declare(
-    fmt
-    GIT_REPOSITORY "https://github.com/fmtlib/fmt"
-    GIT_TAG        "9.1.0"
-)
-
-FetchContent_MakeAvailable(fmt)
 
 include(lua-lib.cmake)
 
@@ -69,8 +63,18 @@ target_link_libraries(${PROJECT_NAME} raylib)
 
 target_link_libraries(${PROJECT_NAME} dylib)
 
-set_property(TARGET nlohmann_json PROPERTY POSITION_INDEPENDENT_CODE ON)
+#set_property(TARGET nlohmann_json PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
+
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build raylib as a shared library" FORCE)
+
+FetchContent_Declare(
+    fmt
+    GIT_REPOSITORY "https://github.com/fmtlib/fmt"
+    GIT_TAG        "9.1.0"
+)
+
+FetchContent_MakeAvailable(fmt)
 
 set_property(TARGET fmt PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${PROJECT_NAME} fmt)
@@ -82,13 +86,17 @@ if(OpenMP_CXX_FOUND)
     target_link_libraries(${PROJECT_NAME} OpenMP::OpenMP_CXX)
 endif()
 
-target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof)
+IF (WIN32)
+  # set stuff for windows
+ELSE()
+    target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof)
+ENDIF()
 
 # Web Configurations
-if (${PLATFORM} STREQUAL "Web")
+#if (${PLATFORM} STREQUAL "Web")
     # Tell Emscripten to build an example.html file.
-    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
-endif()
+#    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+#endif()
 
 # Checks if OSX and links appropriate frameworks (Only required on MacOS)
 if (APPLE)
@@ -139,3 +147,12 @@ add_dependencies(AtlantisBunnyMarkLua CreateProjectFileBunnyMarkLua)
 add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD
                   COMMAND ${CMAKE_COMMAND} -E copy
                     ${CMAKE_SOURCE_DIR}/project.aeng $<TARGET_FILE_DIR:${PROJECT_NAME}>/project.aeng)
+
+# add pre-link command
+# cache the path to lib.exe
+set(VC_EXEC "$(VC_ExecutablePath_x64)\\lib.exe")
+IF (WIN32)
+add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+                  COMMAND ${VC_EXEC} /out:\"$(OutDir)$(ProjectName).lib\" \"$(SolutionDir)$(ProjectName).dir\\$(Configuration)\\*.obj\"
+)
+ENDIF()
