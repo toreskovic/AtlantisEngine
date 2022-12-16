@@ -1,27 +1,23 @@
-# raylib CMake Project
+# Atlantis Engine
 
 This provides a base project template which builds with [CMake](https://cmake.org).
 
-## Usage
+## Prerequisites
+- CMake (https://cmake.org/)
+- Python 3.9 (but other versions might work)
+- libclang python library (https://pypi.org/project/libclang/)
 
-To compile the example, use one of the following dependending on your build target...
+## Compiling the example
 
-### Desktop
-
-Use the following to build for desktop:
-
-``` bash
-cmake -B build
-cmake --build build
+```
+cmake -B build -D CMAKE_BUILD_TYPE=Release
+python set_active_project.py AtlantisBunnyMark
+cmake --build build --target AtlantisEngine
+cmake --build build --target AtlantisBunnyMark
 ```
 
-### Web
-
-Compiling for the web requires the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html):
-
-``` bash
-mkdir build
+## Running the example
+```
 cd build
-emcmake cmake .. -DPLATFORM=Web -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-s USE_GLFW=3" -DCMAKE_EXECUTABLE_SUFFIX=".html"
-emmake make
+./AtlantisEngine
 ```
