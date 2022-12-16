@@ -16,6 +16,8 @@
 
 #include <iostream>
 
+#include <sol/sol.hpp>
+
 #include "reflection/reflectionHelpers.h"
 #include "baseTypeSerialization.h"
 #include "./generated/core.gen.h"
@@ -119,6 +121,98 @@ namespace Atlantis
         }
 
         virtual void MarkObjectDead() override;
+
+        // TODO: try something like this:
+        /*static std::unordered_map<std::string, std::any> _getterFunctions;
+
+        template <std::string S, typename R, typename... Types>
+        R getT(T1 key, T2 state)
+        {
+            std::cout << "generic getT" << std::endl;
+            if (_getterFunctions.find(S) != _getterFunctions.end())
+            {
+                auto getter = std::any_cast<std::function<R(Types)>>(_getterFunctions[S]);
+                return getter(key, state);
+            }
+        }*/
+        
+        sol::object get(sol::stack_object key, sol::this_state L)
+        {
+            auto maybe_string_key = key.as<sol::optional<std::string>>();
+		    if (!maybe_string_key) {
+                return sol::nil;
+            }
+
+            const std::string& k = *maybe_string_key;
+            const AClassData &classData = GetClassData();
+
+            for (auto property : classData.Properties)
+            {
+                if (property.Name == k)
+                {
+                    if (property.Type == "int")
+                    {
+                        return sol::make_object(L, GetProperty<int>(k));
+                    }
+                    else if (property.Type == "float")
+                    {
+                        return sol::make_object(L, GetProperty<float>(k));
+                    }
+                    else if (property.Type == "bool")
+                    {
+                        return sol::make_object(L, GetProperty<bool>(k));
+                    }
+                    else if (property.Type == "string")
+                    {
+                        return sol::make_object(L, GetProperty<std::string>(k));
+                    }
+                    else if (property.Type == "Atlantis::AResourceHandle")
+                    {
+                        return sol::make_object(L, GetProperty<AResourceHandle>(k));
+                    }
+                }
+            }
+
+            return sol::nil;
+        }
+
+        void set(sol::stack_object key, sol::stack_object value, sol::this_state L)
+        {
+            auto maybe_string_key = key.as<sol::optional<std::string>>();
+		    if (!maybe_string_key) {
+                return;
+            }
+
+            const std::string& k = *maybe_string_key;
+            const AClassData &classData = GetClassData();
+
+            for (auto property : classData.Properties)
+            {
+                if (property.Name == k)
+                {
+                    if (property.Type == "int")
+                    {
+                        SetProperty<int>(k, value.as<int>());
+                    }
+                    else if (property.Type == "float")
+                    {
+                        SetProperty<float>(k, value.as<float>());
+                    }
+                    else if (property.Type == "bool")
+                    {
+                        SetProperty<bool>(k, value.as<bool>());
+                    }
+                    else if (property.Type == "string")
+                    {
+                        SetProperty<std::string>(k, value.as<std::string>());
+                    }
+                    else if (property.Type == "Atlantis::AResourceHandle")
+                    {
+                        SetProperty<AResourceHandle>(k, value.as<AResourceHandle>());
+                    }
+                }
+            }
+        }
 
     };
 

@@ -139,7 +139,11 @@ namespace Atlantis
             "SetPropertyFloat", &AComponent::SetProperty<float>,
             "SetPropertyString", &AComponent::SetProperty<std::string>,
             "SetPropertyBool", &AComponent::SetProperty<bool>,
-            "SetPropertyResourceHandle", &AComponent::SetProperty<AResourceHandle>
+            "SetPropertyResourceHandle", &AComponent::SetProperty<AResourceHandle>,
+            sol::meta_function::index,
+	        &AComponent::get,
+	        sol::meta_function::new_index,
+	        &AComponent::set
             );
         }
 

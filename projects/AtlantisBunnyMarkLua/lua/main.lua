@@ -9,30 +9,31 @@ function createBunny()
     local v = NewComponent("CVelocity")
     local r = NewComponent("CRenderable")
 
-    print("1")
+    --print("1")
 
-    -- print(p.x)
+    --print(p.x)
 
-    -- p.x = 100.0
-    -- p.y = 100.0
+    p.x = 100.0
+    p.y = 100.0
 
-    -- v.x = 20.0
+    v.x = 20.0
 
     -- print(p.x)
     -- print(p.y)
 
-    -- print(c.col)
+    --print(c.col)
 
-    p:SetPropertyFloat(AName.new("x"), 100.0)
-    p:SetPropertyFloat(AName.new("y"), 100.0)
+    --p:SetPropertyFloat(AName.new("x"), 100.0)
+    --p:SetPropertyFloat(AName.new("y"), 100.0)
 
-    v:SetPropertyFloat(AName.new("x"), 20.0)
+    --v:SetPropertyFloat(AName.new("x"), 20.0)
 
-    print("2")
+    --print("2")
 
-    r:SetPropertyResourceHandle(AName.new("textureHandle"), bunnyTex)
+    --r:SetPropertyResourceHandle(AName.new("textureHandle"), bunnyTex)
+    r.textureHandle = bunnyTex
 
-    print("3")
+    --print("3")
 
     e:AddComponent(p)
     e:AddComponent(v)
@@ -63,9 +64,7 @@ function SomeSystem(world)
     ForEntitiesWithComponents(name_components, function(entity)
         local position = entity:GetComponentOfType(name_pos)
         local velocity = entity:GetComponentOfType(name_vel)
-        local oldX = position:GetPropertyFloat(name_x)
-        local velocityX = velocity:GetPropertyFloat(name_x) * dt
-        position:SetPropertyFloat(name_x, oldX + velocityX)
+        position.x = position.x + velocity.x * dt
     end)
 
     if dt < 1.0 / 60.0 then
