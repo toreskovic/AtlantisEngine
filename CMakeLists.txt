@@ -102,6 +102,7 @@ add_custom_target(ParseHeaders
     COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/main.cpp ${PROJECT_SOURCE_DIR}
     COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/AtlantisGame
     COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/AtlantisBunnyMark
+    COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/AtlantisBunnyMarkLua
 )
 
 add_custom_target(CreateProjectFileGame
@@ -110,6 +111,10 @@ add_custom_target(CreateProjectFileGame
 
 add_custom_target(CreateProjectFileBunnyMark
     COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py AtlantisBunnyMark
+)
+
+add_custom_target(CreateProjectFileBunnyMarkLua
+    COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py AtlantisBunnyMarkLua
 )
 
 add_dependencies(AtlantisEngine ParseHeaders)
@@ -122,7 +127,15 @@ add_subdirectory("projects/AtlantisBunnyMark")
 add_dependencies(AtlantisBunnyMark AtlantisEngine)
 add_dependencies(AtlantisBunnyMark CreateProjectFileBunnyMark)
 
+add_subdirectory("projects/AtlantisBunnyMarkLua")
+add_dependencies(AtlantisBunnyMarkLua AtlantisEngine)
+add_dependencies(AtlantisBunnyMarkLua CreateProjectFileBunnyMarkLua)
+
 ##target_compile_options(AtlantisBunnyMark PUBLIC -fPIC -rdynamic)
 
 # temp to get rid of warnings
 #add_definitions(-w)
+
+add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD
+                  COMMAND ${CMAKE_COMMAND} -E copy
+                    ${CMAKE_SOURCE_DIR}/project.aeng $<TARGET_FILE_DIR:${PROJECT_NAME}>/project.aeng)

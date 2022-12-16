@@ -121,6 +121,7 @@ int main()
     
 
     LuaRuntime.InitLua();
+    LuaRuntime.SetWorld(&World);
     LuaRuntime.RunScript(LibDir + DirSlash + "lua" + DirSlash + "main.lua");
 
 #if defined(PLATFORM_WEB)

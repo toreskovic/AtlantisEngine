@@ -58,7 +58,7 @@ namespace Atlantis
         DEF_CLASS();
 
         DEF_PROPERTY();
-        Color col;
+        Color col = WHITE;
 
         CColor(){};
         CColor(const CColor &other){};

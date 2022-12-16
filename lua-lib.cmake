@@ -24,7 +24,7 @@ endmacro()
 # ====>> Download Lua library <<==========================#
 
 Download_Library_Git( lua                       
-                      v5.3.5
+                      v5.4.4
                       https://github.com/lua/lua
                     )
 
@@ -42,7 +42,7 @@ add_library( lua::lualib  ALIAS lua)
 
 FetchContent_Declare( sol2 
                       GIT_REPOSITORY  https://github.com/ThePhD/sol2
-                      GIT_TAG         v3.2.0
+                      GIT_TAG         v3.3.0
                     )
 
 FetchContent_MakeAvailable( sol2 )

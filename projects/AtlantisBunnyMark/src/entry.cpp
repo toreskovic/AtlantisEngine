@@ -54,28 +54,56 @@ extern "C"
         _renderer->Labels.insert("Render");
         World->RegisterSystem(_renderer, {"EndRender"});
 
-        World->RegisterSystem([](AWorld *world)
-                                    {
-        const auto& entities = world->GetEntitiesWithComponents<CVelocity, CPosition>();
-        
-        #pragma omp parallel for
-        for (AEntity* e : entities)
+        auto bunnySystem = [](AWorld *world)
         {
-            CVelocity *vel = e->GetComponentOfType<CVelocity>();
-            CPosition *pos = e->GetComponentOfType<CPosition>();
+            world->ForEntitiesWithComponents<CPosition, CVelocity>([](AEntity *e)
+                                                                   {
+                CVelocity *vel = e->GetComponentOfType<CVelocity>();
+                CPosition *pos = e->GetComponentOfType<CPosition>();
 
-            pos->x += vel->x * GetFrameTime();
-            pos->y += vel->y * GetFrameTime();
+                pos->x += vel->x * GetFrameTime();
+                pos->y += vel->y * GetFrameTime();
 
-            if (((pos->x + 16) > GetScreenWidth()) ||
-                ((pos->x + 16) < 0)) vel->x *= -1;
-            if (((pos->y + 16) > GetScreenHeight()) ||
-                ((pos->y + 16 - 40) < 0)) vel->y *= -1;
-        } },
-                                    {"Physics"}, {"BeginRender"});
+                if (((pos->x + 16) > GetScreenWidth()) || ((pos->x + 16) < 0))
+                {
+                    vel->x *= -1;
+                }
+                if (((pos->y + 16) > GetScreenHeight()) || ((pos->y + 16 - 40) < 0))
+                {
+                    vel->y *= -1;
+                } },
+                                                                   true);
+            /*const auto& entities = world->GetEntitiesWithComponents<CVelocity, CPosition>();
+
+            #pragma omp parallel for
+            for (AEntity* e : entities)
+            {
+                CVelocity *vel = e->GetComponentOfType<CVelocity>();
+                CPosition *pos = e->GetComponentOfType<CPosition>();
+
+                pos->x += vel->x * GetFrameTime();
+                pos->y += vel->y * GetFrameTime();
+
+                if (((pos->x + 16) > GetScreenWidth()) ||
+                    ((pos->x + 16) < 0)) vel->x *= -1;
+                if (((pos->y + 16) > GetScreenHeight()) ||
+                    ((pos->y + 16 - 40) < 0)) vel->y *= -1;
+            }*/
+        };
+
+        World->RegisterSystem(bunnySystem,
+                              {"Physics"}, {"BeginRender"});
+        World->RegisterSystem(bunnySystem,
+                              {"Physics"}, {"BeginRender"});
+        World->RegisterSystem(bunnySystem,
+                              {"Physics"}, {"BeginRender"});
+        World->RegisterSystem(bunnySystem,
+                              {"Physics"}, {"BeginRender"});
+        World->RegisterSystem(bunnySystem,
+                              {"Physics"}, {"BeginRender"});
 
         World->RegisterSystem([](AWorld *world)
-                                    {
+                              {
             static auto timer = Timer(1000);
             static float fpsAggregator = 0.0f;
             static int fpsCounter = 0;
@@ -116,10 +144,10 @@ extern "C"
             DrawRectangle(0, 0, textSize + 30, fontSize * 2 + 30, bg);
             DrawText(fpsStr.c_str(), 10, 10, fontSize, LIGHTGRAY);
             DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY); },
-                                    {"DebugInfo"}, {"EndRender"});
+                              {"DebugInfo"}, {"EndRender"});
 
         World->RegisterSystem([](AWorld *world)
-                                    {
+                              {
             if (GetFrameTime() < 1.0f / 60.0f)
             {
                 for (int i = 0; i < 100; i++)
@@ -127,11 +155,11 @@ extern "C"
                     createBunny();
                 }
             } },
-                                    {"CreateBunny"}, {"Physics"});
-        
+                              {"CreateBunny"}, {"Physics"});
+
         // register a system that will mark for deletion 10 live bunnies if frametime is more than 1 / 60
         World->RegisterSystem([](AWorld *world)
-                                    {
+                              {
             if (GetFrameTime() > 1.0f / 60.0f)
             {
                 int count = 0;
@@ -151,7 +179,7 @@ extern "C"
                     count++;
                 }
             } },
-                                    {"DeleteBunny"}, {"Physics"});
+                              {"DeleteBunny"}, {"Physics"});
     }
 
     LIB_EXPORT void SetWorld(AWorld *world)
