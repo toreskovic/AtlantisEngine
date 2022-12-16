@@ -4,9 +4,90 @@
 #include "engine/core.h"
 #include "engine/reflection/reflectionHelpers.h"
 
-
 namespace Atlantis
 {
+    template <>
+    sol::object AComponent::GetPropertyScripting<sol::object, sol::stack_object, sol::this_state>(sol::stack_object key, sol::this_state L)
+    {
+        auto maybe_string_key = key.as<sol::optional<std::string>>();
+        if (!maybe_string_key)
+        {
+            return sol::nil;
+        }
+
+        const std::string &k = *maybe_string_key;
+        const AClassData &classData = GetClassData();
+
+        for (auto property : classData.Properties)
+        {
+            if (property.Name == k)
+            {
+                if (property.Type == "int")
+                {
+                    return sol::make_object(L, GetProperty<int>(k));
+                }
+                else if (property.Type == "float")
+                {
+                    return sol::make_object(L, GetProperty<float>(k));
+                }
+                else if (property.Type == "bool")
+                {
+                    return sol::make_object(L, GetProperty<bool>(k));
+                }
+                else if (property.Type == "string")
+                {
+                    return sol::make_object(L, GetProperty<std::string>(k));
+                }
+                else if (property.Type == "Atlantis::AResourceHandle")
+                {
+                    return sol::make_object(L, GetProperty<AResourceHandle>(k));
+                }
+            }
+        }
+
+        return sol::nil;
+    }
+
+    template <>
+    void AComponent::SetPropertyScripting<sol::stack_object, sol::stack_object, sol::this_state>(sol::stack_object key, sol::stack_object value, sol::this_state L)
+    {
+        auto maybe_string_key = key.as<sol::optional<std::string>>();
+        if (!maybe_string_key)
+        {
+            return;
+        }
+
+        const std::string &k = *maybe_string_key;
+        const AClassData &classData = GetClassData();
+
+        for (auto property : classData.Properties)
+        {
+            if (property.Name == k)
+            {
+                if (property.Type == "int")
+                {
+                    SetProperty<int>(k, value.as<int>());
+                }
+                else if (property.Type == "float")
+                {
+                    SetProperty<float>(k, value.as<float>());
+                }
+                else if (property.Type == "bool")
+                {
+                    SetProperty<bool>(k, value.as<bool>());
+                }
+                else if (property.Type == "string")
+                {
+                    SetProperty<std::string>(k, value.as<std::string>());
+                }
+                else if (property.Type == "Atlantis::AResourceHandle")
+                {
+                    SetProperty<AResourceHandle>(k, value.as<AResourceHandle>());
+                }
+            }
+        }
+    }
+
     struct CLuaComponent : public AComponent
     {
         sol::table LuaTable;
@@ -46,7 +127,7 @@ namespace Atlantis
             return World->NewObject<AEntity>();
         }
 
-        AComponent* NewComponent(const std::string &name)
+        AComponent *NewComponent(const std::string &name)
         {
             AComponent *newComponent = World->NewObject<AComponent>(name);
             return newComponent;
@@ -130,21 +211,20 @@ namespace Atlantis
             entity_type["GetComponentOfType"] = getComponentOfType;
 
             sol::usertype<AComponent> component_type = Lua.new_usertype<AComponent>("AComponent",
-            "GetPropertyInt", &AComponent::GetProperty<int>,
-            "GetPropertyFloat", &AComponent::GetProperty<float>,
-            "GetPropertyString", &AComponent::GetProperty<std::string>,
-            "GetPropertyBool", &AComponent::GetProperty<bool>,
-            "GetPropertyResourceHandle", &AComponent::GetProperty<AResourceHandle>,
-            "SetPropertyInt", &AComponent::SetProperty<int>,
-            "SetPropertyFloat", &AComponent::SetProperty<float>,
-            "SetPropertyString", &AComponent::SetProperty<std::string>,
-            "SetPropertyBool", &AComponent::SetProperty<bool>,
-            "SetPropertyResourceHandle", &AComponent::SetProperty<AResourceHandle>,
-            sol::meta_function::index,
-	        &AComponent::get,
-	        sol::meta_function::new_index,
-	        &AComponent::set
-            );
+                                                                                    "GetPropertyInt", &AComponent::GetProperty<int>,
+                                                                                    "GetPropertyFloat", &AComponent::GetProperty<float>,
+                                                                                    "GetPropertyString", &AComponent::GetProperty<std::string>,
+                                                                                    "GetPropertyBool", &AComponent::GetProperty<bool>,
+                                                                                    "GetPropertyResourceHandle", &AComponent::GetProperty<AResourceHandle>,
+                                                                                    "SetPropertyInt", &AComponent::SetProperty<int>,
+                                                                                    "SetPropertyFloat", &AComponent::SetProperty<float>,
+                                                                                    "SetPropertyString", &AComponent::SetProperty<std::string>,
+                                                                                    "SetPropertyBool", &AComponent::SetProperty<bool>,
+                                                                                    "SetPropertyResourceHandle", &AComponent::SetProperty<AResourceHandle>,
+                                                                                    sol::meta_function::index,
+                                                                                    &AComponent::GetPropertyScripting<sol::object, sol::stack_object, sol::this_state>,
+                                                                                    sol::meta_function::new_index,
+                                                                                    &AComponent::SetPropertyScripting<sol::stack_object, sol::stack_object, sol::this_state>);
         }
 
         void SetWorld(AWorld *world)

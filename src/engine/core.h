@@ -122,98 +122,17 @@ namespace Atlantis
 
         virtual void MarkObjectDead() override;
 
-        // TODO: try something like this:
-        /*static std::unordered_map<std::string, std::any> _getterFunctions;
-
-        template <std::string S, typename R, typename... Types>
-        R getT(T1 key, T2 state)
+        template <typename R, typename... Types>
+        R GetPropertyScripting(Types... args)
         {
-            std::cout << "generic getT" << std::endl;
-            if (_getterFunctions.find(S) != _getterFunctions.end())
-            {
-                auto getter = std::any_cast<std::function<R(Types)>>(_getterFunctions[S]);
-                return getter(key, state);
-            }
-        }*/
-        
-        sol::object get(sol::stack_object key, sol::this_state L)
-        {
-            auto maybe_string_key = key.as<sol::optional<std::string>>();
-		    if (!maybe_string_key) {
-                return sol::nil;
-            }
-
-            const std::string& k = *maybe_string_key;
-            const AClassData &classData = GetClassData();
-
-            for (auto property : classData.Properties)
-            {
-                if (property.Name == k)
-                {
-                    if (property.Type == "int")
-                    {
-                        return sol::make_object(L, GetProperty<int>(k));
-                    }
-                    else if (property.Type == "float")
-                    {
-                        return sol::make_object(L, GetProperty<float>(k));
-                    }
-                    else if (property.Type == "bool")
-                    {
-                        return sol::make_object(L, GetProperty<bool>(k));
-                    }
-                    else if (property.Type == "string")
-                    {
-                        return sol::make_object(L, GetProperty<std::string>(k));
-                    }
-                    else if (property.Type == "Atlantis::AResourceHandle")
-                    {
-                        return sol::make_object(L, GetProperty<AResourceHandle>(k));
-                    }
-                }
-            }
-
-            return sol::nil;
+            std::cout << "Error: Unimplemented GetPropertyScripting" << std::endl;
         }
 
-        void set(sol::stack_object key, sol::stack_object value, sol::this_state L)
+        template <typename... Types>
+        void SetPropertyScripting(Types... args)
         {
-            auto maybe_string_key = key.as<sol::optional<std::string>>();
-		    if (!maybe_string_key) {
-                return;
-            }
-
-            const std::string& k = *maybe_string_key;
-            const AClassData &classData = GetClassData();
-
-            for (auto property : classData.Properties)
-            {
-                if (property.Name == k)
-                {
-                    if (property.Type == "int")
-                    {
-                        SetProperty<int>(k, value.as<int>());
-                    }
-                    else if (property.Type == "float")
-                    {
-                        SetProperty<float>(k, value.as<float>());
-                    }
-                    else if (property.Type == "bool")
-                    {
-                        SetProperty<bool>(k, value.as<bool>());
-                    }
-                    else if (property.Type == "string")
-                    {
-                        SetProperty<std::string>(k, value.as<std::string>());
-                    }
-                    else if (property.Type == "Atlantis::AResourceHandle")
-                    {
-                        SetProperty<AResourceHandle>(k, value.as<AResourceHandle>());
-                    }
-                }
-            }
+            std::cout << "Error: Unimplemented SetPropertyScripting" << std::endl;
         }
-
     };
 
     struct AEntity : public AObject
@@ -332,7 +251,7 @@ namespace Atlantis
     template <typename T>
     struct AObjPtr
     {
-        AObjPtr(T* ptr)
+        AObjPtr(T *ptr)
         {
             if (ptr == nullptr)
             {
@@ -350,7 +269,7 @@ namespace Atlantis
 
         T *Get(bool validate = true);
 
-        T *Get(const AName& name, bool validate = true);
+        T *Get(const AName &name, bool validate = true);
 
         T *operator->()
         {
@@ -645,7 +564,7 @@ namespace Atlantis
         }
     };
 
-    template<typename T>
+    template <typename T>
     inline bool AObjPtr<T>::IsValid()
     {
         if (!_isAssigned)
@@ -657,7 +576,7 @@ namespace Atlantis
         return obj->_isAlive;
     }
 
-    template<typename T>
+    template <typename T>
     inline T *AObjPtr<T>::Get(bool validate)
     {
         if (validate)
