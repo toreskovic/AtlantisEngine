@@ -260,7 +260,21 @@ namespace Atlantis
 
         if (parallel)
         {
-//#pragma omp parallel for
+// MSVC currently supports only OpenMP 2.0, which doesn't like range-based for loops :(
+#if defined(_WIN32)
+#pragma omp parallel for
+            for (int i = 0; i < entities.size(); i++)
+            {
+                AEntity *entity = static_cast<AEntity *>(entities[i].get());
+
+                if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
+                {
+                    lambda(entity);
+                }
+            }
+        }
+#else
+#pragma omp parallel for
             for (auto &entityObj : entities)
             {
                 AEntity *entity = static_cast<AEntity *>(entityObj.get());
@@ -271,6 +285,7 @@ namespace Atlantis
                 }
             }
         }
+#endif
         else
         {
             for (auto &entityObj : entities)
@@ -289,7 +304,7 @@ namespace Atlantis
     {
         ComponentBitset ret = 0x0;
 
-        for (uint32_t i = 0; i < componentsNames.size(); i++)
+        for (int i = 0; i < componentsNames.size(); i++)
         {
             auto it = std::find(ComponentNames.begin(), ComponentNames.end(), componentsNames[i]);
             if (it != ComponentNames.end())
