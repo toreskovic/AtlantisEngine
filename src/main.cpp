@@ -197,10 +197,11 @@ void TryUnloadGameLib()
         auto unload = LibPtr->get_function<void()>("Unload");
         unload();
 
-        std::filesystem::remove(LibDir + DirSlash + LibTempName);
         // unload lib
         delete LibPtr;
         LibPtr = nullptr;
+
+        std::filesystem::remove(LibDir + DirSlash + LibTempName);
     }
 }
 
