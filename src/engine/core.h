@@ -152,7 +152,7 @@ namespace Atlantis
         {
             for (auto *comp : Components)
             {
-                if (AName(comp->GetClassData().Name) == name)
+                if (comp->GetClassData().Name == name)
                 {
                     return comp;
                 }
@@ -164,8 +164,7 @@ namespace Atlantis
         template <typename T>
         T *GetComponentOfType()
         {
-            T tempComponent;
-            AName name = tempComponent.GetClassData().Name;
+            const AName& name = T::GetClassDataStatic().Name;
 
             for (auto *comp : Components)
             {
