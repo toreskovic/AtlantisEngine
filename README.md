@@ -1,7 +1,5 @@
 # Atlantis Engine
 
-This provides a base project template which builds with [CMake](https://cmake.org).
-
 ## Prerequisites
 
 - CMake (https://cmake.org/) ( >= 3.11)
@@ -28,7 +26,8 @@ cmake -B build -D CMAKE_BUILD_TYPE=Release
 python set_active_project.py AtlantisBunnyMark
 ```
 
-You can build the AtlantisBunnyMark project now
+You can build the AtlantisBunnyMark project now.
+
 After building a configuration for the first time:
 
 - navigate to `build/\_deps/raylib-build/raylib/Debug(or Release)` and copy the dll to `build/Debug(or Release)`
