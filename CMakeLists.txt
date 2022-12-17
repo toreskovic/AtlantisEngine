@@ -52,13 +52,15 @@ include(lua-lib.cmake)
 include_directories(src)
 
 add_executable(${PROJECT_NAME} ${sources})
-# ENABLE_EXPORTS on windows for AtlantisEngine to create a .lib file
-# export all symbols for windows
-# also set subsystem to windows for windows
 if (WIN32)
+# ENABLE_EXPORTS on windows for AtlantisEngine to create a .lib file
     set_target_properties(${PROJECT_NAME} PROPERTIES ENABLE_EXPORTS ON)
+# export all symbols for windows
     set_target_properties(${PROJECT_NAME} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+# set subsystem to windows for windows
     target_link_options(${PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
+# set startup project for visual studio
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
 endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
