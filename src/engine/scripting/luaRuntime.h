@@ -9,6 +9,16 @@
 
 namespace Atlantis
 {
+#define DECLARE_PROPERTY_TYPE(name) static const AName _propType_##name = #name;
+#define DECLARE_PROPERTY_TYPE_ATLANTIS(name) static const AName _propType_##name = "Atlantis::" #name;
+#define GET_PROPERTY_TYPE(name) _propType_##name
+
+    DECLARE_PROPERTY_TYPE(int)
+    DECLARE_PROPERTY_TYPE(float)
+    DECLARE_PROPERTY_TYPE(bool)
+    DECLARE_PROPERTY_TYPE(string)
+    DECLARE_PROPERTY_TYPE_ATLANTIS(AResourceHandle)
+
     template <>
     sol::object AComponent::GetPropertyScripting<sol::object, sol::stack_object, sol::this_state>(sol::stack_object key, sol::this_state L)
     {
@@ -18,30 +28,30 @@ namespace Atlantis
             return sol::nil;
         }
 
-        const std::string &k = *maybe_string_key;
+        AName k = *maybe_string_key;
         const AClassData &classData = GetClassData();
 
-        for (auto property : classData.Properties)
+        for (const auto &property : classData.Properties)
         {
             if (property.Name == k)
             {
-                if (property.Type == "int")
+                if (property.Type == GET_PROPERTY_TYPE(int))
                 {
                     return sol::make_object(L, GetProperty<int>(k));
                 }
-                else if (property.Type == "float")
+                else if (property.Type == GET_PROPERTY_TYPE(float))
                 {
                     return sol::make_object(L, GetProperty<float>(k));
                 }
-                else if (property.Type == "bool")
+                else if (property.Type == GET_PROPERTY_TYPE(bool))
                 {
                     return sol::make_object(L, GetProperty<bool>(k));
                 }
-                else if (property.Type == "string")
+                else if (property.Type == GET_PROPERTY_TYPE(string))
                 {
                     return sol::make_object(L, GetProperty<std::string>(k));
                 }
-                else if (property.Type == "Atlantis::AResourceHandle")
+                else if (property.Type == GET_PROPERTY_TYPE(AResourceHandle))
                 {
                     return sol::make_object(L, GetProperty<AResourceHandle>(k));
                 }
@@ -60,30 +70,30 @@ namespace Atlantis
             return;
         }
 
-        const std::string &k = *maybe_string_key;
+        AName k = *maybe_string_key;
         const AClassData &classData = GetClassData();
 
-        for (auto property : classData.Properties)
+        for (const auto &property : classData.Properties)
         {
             if (property.Name == k)
             {
-                if (property.Type == "int")
+                if (property.Type == GET_PROPERTY_TYPE(int))
                 {
                     SetProperty<int>(k, value.as<int>());
                 }
-                else if (property.Type == "float")
+                else if (property.Type == GET_PROPERTY_TYPE(float))
                 {
                     SetProperty<float>(k, value.as<float>());
                 }
-                else if (property.Type == "bool")
+                else if (property.Type == GET_PROPERTY_TYPE(bool))
                 {
                     SetProperty<bool>(k, value.as<bool>());
                 }
-                else if (property.Type == "string")
+                else if (property.Type == GET_PROPERTY_TYPE(string))
                 {
                     SetProperty<std::string>(k, value.as<std::string>());
                 }
-                else if (property.Type == "Atlantis::AResourceHandle")
+                else if (property.Type == GET_PROPERTY_TYPE(AResourceHandle))
                 {
                     SetProperty<AResourceHandle>(k, value.as<AResourceHandle>());
                 }
