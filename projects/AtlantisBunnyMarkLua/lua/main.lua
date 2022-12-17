@@ -1,6 +1,6 @@
 print("Lua thing loaded")
 
-local bunnyTex = GetTexture("_deps/raylib-src/examples/textures/resources/wabbit_alpha.png")
+local bunnyTex = GetTexture("Assets/wabbit_alpha.png")
 
 function createBunny()
     local e = NewEntity()
@@ -47,12 +47,12 @@ local name_vel = AName.new("CVelocity")
 local name_x = AName.new("x")
 local name_y = AName.new("y")
 
-local name_components = {name_pos, name_vel}
+local name_components = { name_pos, name_vel }
 
 function SomeSystem(world)
     local dt = GetDeltaTime()
     -- local entities = world:GetEntitiesWithComponents(name_components)
-    -- 
+    --
     -- for i = 1, #entities do
     --     local position = entities[i]:GetComponentOfType(name_pos)
     --     local velocity = entities[i]:GetComponentOfType(name_vel)
@@ -78,5 +78,5 @@ function Init()
     print("Init")
     createBunny()
 
-    RegisterSystem(SomeSystem, {AName.new("System")}, {AName.new("BeginRender")})
+    RegisterSystem(SomeSystem, { AName.new("System") }, { AName.new("BeginRender") })
 end
