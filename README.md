@@ -31,23 +31,21 @@ python set_active_project.py AtlantisBunnyMark
 After doing this, you should have your fancy new Visual Studio solution and projects inside the build folder. We're not done yet:
 
 1. Set AtlantisEngine as the startup project
-2. Open the AtlantisEngine project's properties
-   - Under the Build-Events category, set the Pre-Link event to the following
-   ```
-   @ECHO ON
-   @ECHO "$(VC_ExecutablePath_x64)\lib.exe" /out:"$(OutDir)$(ProjectName).lib" "$(SolutionDir)$(ProjectName).dir\$(Configuration)\*.obj"
-   "$(VC_ExecutablePath_x64)\lib.exe" /out:"$(OutDir)$(ProjectName).lib" "$(SolutionDir)$(ProjectName).dir\$(Configuration)\*.obj"
-   ```
-   - Under the Linker category, find System, and finally set SubSystem to Windows
-3. You can build the AtlantisBunnyMark project now
-4. Inside the build folder, navigate to \_deps/raylib-build/raylib/Debug(or Release) and copy the dll back to the root build/Debug(or Release)
-5. Go to build/projects/AtlantisBunnyMark/Debug and copy that dll over to build/Debug/projects/AtlantisBunnyMark
+2. You can build the AtlantisBunnyMark project now
+3. Inside the build folder, navigate to \_deps/raylib-build/raylib/Debug(or Release) and copy the dll back to the root build/Debug(or Release)
+4. Go to build/projects/AtlantisBunnyMark/Debug and copy that dll over to build/Debug/projects/AtlantisBunnyMark
 
 NOTE: when changing Debug / Release configurations, steps from 2. onward need to be repeated for the new configuration
 
 ## Running the example
 
+### Linux
+
 ```
 cd build
 ./AtlantisEngine
 ```
+
+### Windows
+
+You know what to do

@@ -52,6 +52,14 @@ include(lua-lib.cmake)
 include_directories(src)
 
 add_executable(${PROJECT_NAME} ${sources})
+# ENABLE_EXPORTS on windows for AtlantisEngine to create a .lib file
+# export all symbols for windows
+# also set subsystem to windows for windows
+if (WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES ENABLE_EXPORTS ON)
+    set_target_properties(${PROJECT_NAME} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    target_link_options(${PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
+endif()
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 set_property(TARGET AtlantisEngine PROPERTY ENABLE_EXPORTS ON)
@@ -147,12 +155,3 @@ add_dependencies(AtlantisBunnyMarkLua CreateProjectFileBunnyMarkLua)
 add_custom_command(TARGET ${PROJECT_NAME} PRE_BUILD
                   COMMAND ${CMAKE_COMMAND} -E copy
                     ${CMAKE_SOURCE_DIR}/project.aeng $<TARGET_FILE_DIR:${PROJECT_NAME}>/project.aeng)
-
-# add pre-link command
-# cache the path to lib.exe
-set(VC_EXEC "$(VC_ExecutablePath_x64)\\lib.exe")
-IF (WIN32)
-add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
-                  COMMAND ${VC_EXEC} /out:\"$(OutDir)$(ProjectName).lib\" \"$(SolutionDir)$(ProjectName).dir\\$(Configuration)\\*.obj\"
-)
-ENDIF()
