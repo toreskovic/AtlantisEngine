@@ -55,7 +55,9 @@ def class_decl(node):
     static AClassData& GetClassDataStatic() \\
     {{ \\
         static AClassData classData; \\
-        if (classData.IsValid()) return classData; \\
+        static bool initialized = false; \\
+        if (initialized) return classData; \\
+        initialized = true; \\
             \\
         classData.Name = "{class_name}"; \\
         classData.Size = sizeof({class_name}); \\
@@ -67,7 +69,9 @@ def class_decl(node):
     virtual const AClassData& GetClassData() const override \\
     {{ \\
         static AClassData classData; \\
-        if (classData.IsValid()) return classData; \\
+        static bool initialized = false; \\
+        if (initialized) return classData; \\
+        initialized = true; \\
             \\
         classData.Name = "{class_name}"; \\
         classData.Size = sizeof({class_name}); \\
