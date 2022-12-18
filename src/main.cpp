@@ -127,7 +127,7 @@ void InitStuffTmp()
     std::ifstream projectFile("./project.aeng");
     std::getline(projectFile, LibName);
 
-    LibDir = Helpers::GetExeDirectory().string() + "projects/" + LibName;
+    LibDir = Helpers::GetExeDirectory().string();
 
     // Raylib Initialization
     //--------------------------------------------------------------------------------------

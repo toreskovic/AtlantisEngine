@@ -1,6 +1,8 @@
 #include "helpers.h"
 
-#include "iostream"
+#include <iostream>
+#include <fstream>
+#include <filesystem>
 
 #if defined(_WIN32)
 #if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) || defined(_M_X64) || defined(_M_AMD64)
@@ -31,6 +33,18 @@ namespace Atlantis
             return {}; // some error
         szPath[count] = '\0';
 #endif
-        return std::filesystem::path{ szPath }.parent_path() / ""; // to finish the folder path with (back)slash
+        return std::filesystem::path{szPath}.parent_path() / ""; // to finish the folder path with (back)slash
+    }
+
+    std::filesystem::path Helpers::GetProjectDirectory()
+    {
+        std::string projectName;
+        std::ifstream projectFile("./project.aeng");
+        std::getline(projectFile, projectName);
+#ifdef _WIN32
+        return std::filesystem::path(GetExeDirectory().string() + "../../projects/" + projectName + "/");
+#else
+        return std::filesystem::path("../projects/" + projectName + "/");
+#endif
     }
 }

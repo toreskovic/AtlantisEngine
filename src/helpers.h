@@ -9,6 +9,7 @@ namespace Atlantis
     {
     public:
         static std::filesystem::path GetExeDirectory();
+        static std::filesystem::path GetProjectDirectory();
     };
 }
 

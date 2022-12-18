@@ -164,7 +164,7 @@ namespace Atlantis
         template <typename T>
         T *GetComponentOfType()
         {
-            const AName& name = T::GetClassDataStatic().Name;
+            const AName &name = T::GetClassDataStatic().Name;
 
             for (auto *comp : Components)
             {
@@ -241,7 +241,7 @@ namespace Atlantis
                 return ret;
             }
 
-            Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetExeDirectory().string() + path).c_str()))));
+            Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str()))));
 
             AResourceHandle ret(Resources.at(path).get());
             return ret;
