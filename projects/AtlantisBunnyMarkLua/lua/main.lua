@@ -13,10 +13,11 @@ function createBunny()
 
     --print(p.x)
 
-    p.x = 100.0
-    p.y = 100.0
+    p.x = math.random(0.0, 800.0)
+    p.y = math.random(0.0, 450.0)
 
-    v.x = 20.0
+    v.x = math.random(-250.0, 250.0)
+    v.y = math.random(-250.0, 250.0)
 
     -- print(p.x)
     -- print(p.y)
@@ -63,6 +64,24 @@ function SomeSystem(world)
         local position = entity:GetComponentOfType(name_pos)
         local velocity = entity:GetComponentOfType(name_vel)
         position.x = position.x + velocity.x * dt
+        position.y = position.y + velocity.y * dt
+
+        if position.x < 0.0 then
+            position.x = 0.0
+            velocity.x = -velocity.x
+        end
+        if position.x > 800.0 then
+            position.x = 800.0
+            velocity.x = -velocity.x
+        end
+        if position.y < 0.0 then
+            position.y = 0.0
+            velocity.y = -velocity.y
+        end
+        if position.y > 450.0 then
+            position.y = 450.0
+            velocity.y = -velocity.y
+        end
     end)
 
     if dt < 1.0 / 60.0 then

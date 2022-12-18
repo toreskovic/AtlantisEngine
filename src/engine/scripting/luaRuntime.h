@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <unordered_map>
 #include "engine/core.h"
+#include "engine/renderer/renderer.h"
 #include "engine/reflection/reflectionHelpers.h"
 
 namespace Atlantis
@@ -19,6 +20,10 @@ namespace Atlantis
     DECLARE_PROPERTY_TYPE(string)
     DECLARE_PROPERTY_TYPE_ATLANTIS(AResourceHandle)
 
+#define SCRIPTING_EXPOSE_COMPONENT(name)                             \
+    sol::usertype<name> type_##name = Lua.new_usertype<name>(#name); \
+    entity_type["GetComponent_" #name] = &AEntity::GetComponentOfType<name>;
+
     template <>
     sol::object AComponent::GetPropertyScripting<sol::object, sol::stack_object, sol::this_state>(sol::stack_object key, sol::this_state L)
     {
@@ -29,8 +34,10 @@ namespace Atlantis
         }
 
         static APropertyData propData;
-        static std::string tmpStr = *maybe_string_key;
+        static std::string tmpStr;
         static std::unordered_map<std::string, APropertyData> memo;
+
+        tmpStr = *maybe_string_key;
 
         auto it = memo.find(tmpStr);
         if (it != memo.end())
@@ -183,10 +190,8 @@ namespace Atlantis
 
         void ForEntitiesWithComponents(std::vector<AName> components, sol::function func)
         {
-            World->ForEntitiesWithComponents(components, [func](AEntity *e)
-                                             {
-                std::function<void(AEntity*)> f = func;
-                f(e); });
+            std::function<void(AEntity *)> f = func;
+            World->ForEntitiesWithComponents(components, f);
         }
 
         float GetDeltaTime()
@@ -216,7 +221,7 @@ namespace Atlantis
         void InitLua()
         {
             // open some common libraries
-            Lua.open_libraries(sol::lib::base, sol::lib::package);
+            Lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::math);
 
             Lua.set_function("RegisterEntity", &ALuaWorld::RegisterEntity, &LuaWorld);
             Lua.set_function("RegisterComponent", &ALuaWorld::RegisterComponent, &LuaWorld);
@@ -258,6 +263,14 @@ namespace Atlantis
                                                                                     &AComponent::GetPropertyScripting<sol::object, sol::stack_object, sol::this_state>,
                                                                                     sol::meta_function::new_index,
                                                                                     &AComponent::SetPropertyScripting<sol::stack_object, sol::stack_object, sol::this_state>);
+
+            // TODO: generate something usable for this from the header parser
+            /*SCRIPTING_EXPOSE_COMPONENT(CPosition);
+            SCRIPTING_EXPOSE_COMPONENT(CVelocity);
+            type_CPosition["x"] = &CPosition::x;
+            type_CPosition["y"] = &CPosition::y;
+            type_CVelocity["x"] = &CVelocity::x;
+            type_CVelocity["y"] = &CVelocity::y;*/
         }
 
         void SetWorld(AWorld *world)
