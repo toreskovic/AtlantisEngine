@@ -26,16 +26,8 @@ cmake -B build -D CMAKE_BUILD_TYPE=Release
 python set_active_project.py AtlantisBunnyMark
 ```
 
+You should now see your .sln and .vcxproj files inside the build directory.
 You can build the AtlantisBunnyMark project now.
-
-After building a configuration for the first time:
-
-- navigate to `build/\_deps/raylib-build/raylib/Debug(or Release)` and copy the dll to `build/Debug(or Release)`
-- Navigate to `build/\_deps/raylib-src/examples/textures/resources` and copy the `wabbit_alpha.png` to the `build/Debug(or Release)/Assets` folder
-
-After every build of AtlantisBunnyMark:
-
-- Go to `build/projects/AtlantisBunnyMark/Debug(or Release)` and copy that dll over to `build/Debug(or Release)/projects/AtlantisBunnyMark`
 
 ## Running the example
 
