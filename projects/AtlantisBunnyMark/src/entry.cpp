@@ -93,21 +93,22 @@ extern "C"
 
         World->RegisterSystem(bunnySystem,
                               {"Physics"}, {"BeginRender"});
-        World->RegisterSystem(bunnySystem,
+        /*World->RegisterSystem(bunnySystem,
                               {"Physics"}, {"BeginRender"});
         World->RegisterSystem(bunnySystem,
                               {"Physics"}, {"BeginRender"});
         World->RegisterSystem(bunnySystem,
                               {"Physics"}, {"BeginRender"});
         World->RegisterSystem(bunnySystem,
-                              {"Physics"}, {"BeginRender"});
+                              {"Physics"}, {"BeginRender"});*/
+
+        static float fps = 0;
 
         World->RegisterSystem([](AWorld *world)
                               {
             static auto timer = Timer(1000);
             static float fpsAggregator = 0.0f;
             static int fpsCounter = 0;
-            static float fps = 0;
 
             fpsAggregator += 1.0f / GetFrameTime();
             fpsCounter++;
@@ -148,7 +149,7 @@ extern "C"
 
         World->RegisterSystem([](AWorld *world)
                               {
-            if (GetFrameTime() < 1.0f / 60.0f)
+            if (fps > 60.0f)
             {
                 for (int i = 0; i < 100; i++)
                 {
@@ -160,12 +161,12 @@ extern "C"
         // register a system that will mark for deletion 10 live bunnies if frametime is more than 1 / 60
         World->RegisterSystem([](AWorld *world)
                               {
-            if (GetFrameTime() > 1.0f / 60.0f)
+            if (fps < 60.0f)
             {
                 int count = 0;
                 for (AEntity *e : world->GetEntitiesWithComponents<CPosition, CRenderable>())
                 {
-                    if (count >= 10)
+                    if (count >= 50)
                     {
                         break;
                     }
