@@ -1,7 +1,7 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-#include "rayWrapper.h"
+#include "raylib.h"
 
 #include "engine/reflection/reflectionHelpers.h"
 #include "engine/core.h"

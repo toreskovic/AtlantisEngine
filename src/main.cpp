@@ -1,7 +1,7 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
-#include "rayWrapper.h"
+#include "raylib.h"
 #include <string>
 
 #if defined(PLATFORM_WEB)
@@ -87,24 +87,23 @@ void RegisterSystems()
                          {"EndRender"});
 }
 
-void InitStuffTmp();
+void DoMain();
 
 #if defined(_WIN32)
-//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char *pCmdLine, int nCmdShow)
-int main()
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char *pCmdLine, int nCmdShow)
 {
-    InitStuffTmp();
-    return 0;
-}
-#else
-int main()
-{
-    InitStuffTmp();
+    DoMain();
     return 0;
 }
 #endif
 
-void InitStuffTmp()
+int main()
+{
+    DoMain();
+    return 0;
+}
+
+void DoMain()
 {
     auto cpuThreadCount = omp_get_num_procs();
     if (cpuThreadCount == 0)

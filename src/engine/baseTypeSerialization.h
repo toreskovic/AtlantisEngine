@@ -2,7 +2,7 @@
 #define BASETYPESERIALIZATION_H
 
 #include "nlohmann/json.hpp"
-#include "rayWrapper.h"
+#include "raylib.h"
 
 using json = nlohmann::json;
 
