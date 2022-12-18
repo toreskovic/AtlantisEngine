@@ -27,6 +27,7 @@ python set_active_project.py AtlantisBunnyMark
 ```
 
 You should now see your .sln and .vcxproj files inside the build directory.
+
 You can build the AtlantisBunnyMark project now.
 
 ## Running the example
