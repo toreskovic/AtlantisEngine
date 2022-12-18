@@ -61,11 +61,3 @@ include_directories(../../src)
 
 # temp to get rid of warnings
 add_definitions(-w)
-
-if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/projects/${PROJECT_NAME}/lua")
-    if(EXISTS "${CMAKE_SOURCE_DIR}/projects/${PROJECT_NAME}/lua/main.lua")
-      add_custom_command( TARGET ${PROJECT_NAME} PRE_BUILD
-                          COMMAND ${CMAKE_COMMAND} -E copy_directory
-                          ${CMAKE_SOURCE_DIR}/projects/${PROJECT_NAME}/lua $<TARGET_FILE_DIR:${PROJECT_NAME}>/lua)
-    endif()
-endif()

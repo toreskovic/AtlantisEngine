@@ -150,7 +150,7 @@ void DoMain()
 
     LuaRuntime.InitLua();
     LuaRuntime.SetWorld(&World);
-    LuaRuntime.RunScript(LibDir + DirSlash + "lua" + DirSlash + "main.lua");
+    LuaRuntime.RunScript(Helpers::GetProjectDirectory().string() + "lua" + DirSlash + "main.lua");
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
