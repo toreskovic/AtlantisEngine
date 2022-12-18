@@ -50,7 +50,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 
 
-include(lua-lib.cmake)
+include(luajit-lib.cmake)
 
 # Our Project
 include_directories(src)

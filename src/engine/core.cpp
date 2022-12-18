@@ -20,8 +20,6 @@
 
 namespace Atlantis
 {
-    //std::map<AName, std::unique_ptr<AObject>, ANameComparer> AWorld::CDOs{};
-
     template <typename T>
     bool Helper_IsEqual(const T &l, const T &r)
     {

@@ -52,13 +52,11 @@ local name_components = { name_pos, name_vel }
 function SomeSystem(world)
     local dt = GetDeltaTime()
     -- local entities = world:GetEntitiesWithComponents(name_components)
-    --
+
     -- for i = 1, #entities do
     --     local position = entities[i]:GetComponentOfType(name_pos)
     --     local velocity = entities[i]:GetComponentOfType(name_vel)
-    --     local oldX = position:GetPropertyFloat(name_x)
-    --     local velocityX = velocity:GetPropertyFloat(name_x) * dt
-    --     position:SetPropertyFloat(name_x, oldX + velocityX)
+    --     position.x = position.x + velocity.x * dt
     -- end
 
     ForEntitiesWithComponents(name_components, function(entity)
