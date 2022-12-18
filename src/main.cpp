@@ -90,7 +90,8 @@ void RegisterSystems()
 void InitStuffTmp();
 
 #if defined(_WIN32)
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char *pCmdLine, int nCmdShow)
+//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char *pCmdLine, int nCmdShow)
+int main()
 {
     InitStuffTmp();
     return 0;
@@ -99,6 +100,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char *pCmdLine,
 int main()
 {
     InitStuffTmp();
+    return 0;
 }
 #endif
 

@@ -62,7 +62,7 @@ if (WIN32)
 # export all symbols for windows
     set_target_properties(${PROJECT_NAME} PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 # set subsystem to windows for windows
-    target_link_options(${PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
+    #target_link_options(${PROJECT_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
 # set startup project for visual studio
     set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
 endif()
