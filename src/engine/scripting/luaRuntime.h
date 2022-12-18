@@ -1,9 +1,9 @@
 #ifndef LUARUNTIME_H
 #define LUARUNTIME_H
-
 #include <sol/sol.hpp>
 #include <iostream>
 #include <filesystem>
+#include <unordered_map>
 #include "engine/core.h"
 #include "engine/reflection/reflectionHelpers.h"
 
@@ -28,34 +28,54 @@ namespace Atlantis
             return sol::nil;
         }
 
-        AName k = *maybe_string_key;
-        const AClassData &classData = GetClassData();
+        static APropertyData propData;
+        static std::string tmpStr = *maybe_string_key;
+        static std::unordered_map<std::string, APropertyData> memo;
 
-        for (const auto &property : classData.Properties)
+        auto it = memo.find(tmpStr);
+        if (it != memo.end())
         {
-            if (property.Name == k)
+            propData = it->second;
+        }
+        else
+        {
+            const AClassData &classData = GetClassData();
+            for (const auto &property : classData.Properties)
             {
-                if (property.Type == GET_PROPERTY_TYPE(int))
+                if (property.Name == tmpStr)
                 {
-                    return sol::make_object(L, GetProperty<int>(k));
-                }
-                else if (property.Type == GET_PROPERTY_TYPE(float))
-                {
-                    return sol::make_object(L, GetProperty<float>(k));
-                }
-                else if (property.Type == GET_PROPERTY_TYPE(bool))
-                {
-                    return sol::make_object(L, GetProperty<bool>(k));
-                }
-                else if (property.Type == GET_PROPERTY_TYPE(string))
-                {
-                    return sol::make_object(L, GetProperty<std::string>(k));
-                }
-                else if (property.Type == GET_PROPERTY_TYPE(AResourceHandle))
-                {
-                    return sol::make_object(L, GetProperty<AResourceHandle>(k));
+                    propData = property;
+                    break;
                 }
             }
+
+            memo[tmpStr] = propData;
+        }
+
+        if (propData.Type == GET_PROPERTY_TYPE(int))
+        {
+            int *val = reinterpret_cast<int *>((size_t)this + propData.Offset);
+            return sol::make_object(L, *val);
+        }
+        else if (propData.Type == GET_PROPERTY_TYPE(float))
+        {
+            float *val = reinterpret_cast<float *>((size_t)this + propData.Offset);
+            return sol::make_object(L, *val);
+        }
+        else if (propData.Type == GET_PROPERTY_TYPE(bool))
+        {
+            bool *val = reinterpret_cast<bool *>((size_t)this + propData.Offset);
+            return sol::make_object(L, *val);
+        }
+        else if (propData.Type == GET_PROPERTY_TYPE(string))
+        {
+            std::string *val = reinterpret_cast<std::string *>((size_t)this + propData.Offset);
+            return sol::make_object(L, *val);
+        }
+        else if (propData.Type == GET_PROPERTY_TYPE(AResourceHandle))
+        {
+            AResourceHandle *val = reinterpret_cast<AResourceHandle *>((size_t)this + propData.Offset);
+            return sol::make_object(L, *val);
         }
 
         return sol::nil;
