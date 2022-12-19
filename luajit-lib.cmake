@@ -14,7 +14,7 @@ if(NOT luajit_POPULATED)
     # build luajit with make / msbuild
     # make
     if(UNIX)
-        execute_process(COMMAND make
+        execute_process(COMMAND make "CC=gcc -fPIC"
                         WORKING_DIRECTORY ${luajit_SOURCE_DIR}
                         RESULT_VARIABLE luajit_build_result
                         OUTPUT_VARIABLE luajit_build_output
@@ -75,7 +75,7 @@ if(WIN32)
     target_link_libraries(luajit INTERFACE lua51.lib luajit.lib minilua.lib buildvm.lib)
 # linux
 elseif(UNIX)
-    target_link_libraries(luajit INTERFACE libluajit.a liblua51.a libminilua.a libbuildvm.a)
+    target_link_libraries(luajit INTERFACE libluajit.a)
 endif()
 add_library( lua::lualib  ALIAS luajit )
 

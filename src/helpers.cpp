@@ -15,6 +15,9 @@
 
 #include <minwindef.h>
 #include <libloaderapi.h>
+#elif defined(__linux__)
+#include <limits.h>
+#include <unistd.h>
 #endif
 
 namespace Atlantis
