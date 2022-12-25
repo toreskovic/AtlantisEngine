@@ -284,10 +284,12 @@ namespace Atlantis
 
         for (int i = 0; i < componentsNames.size(); i++)
         {
-            auto it = std::find(ComponentNames.begin(), ComponentNames.end(), componentsNames[i]);
-            if (it != ComponentNames.end())
+            for (int j = 0; j < ComponentNames.size(); j++)
             {
-                ret.set(i, true);
+                if (componentsNames[i] == ComponentNames[j])
+                {
+                    ret.set(j, true);
+                }
             }
         }
 
