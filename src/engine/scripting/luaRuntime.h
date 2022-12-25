@@ -185,13 +185,15 @@ namespace Atlantis
 
         std::vector<AEntity *> GetEntitiesWithComponents(std::vector<AName> components)
         {
-            return World->GetEntitiesWithComponents(components);
+            ComponentBitset componentMask = World->GetComponentMaskForComponents(components);
+            return World->GetEntitiesWithComponents(componentMask);
         }
 
         void ForEntitiesWithComponents(std::vector<AName> components, sol::function func)
         {
             std::function<void(AEntity *)> f = func;
-            World->ForEntitiesWithComponents(components, f);
+            ComponentBitset componentMask = World->GetComponentMaskForComponents(components);
+            World->ForEntitiesWithComponents(componentMask, f);
         }
 
         float GetDeltaTime()
@@ -239,9 +241,9 @@ namespace Atlantis
                                                                                        AName(std::string),
                                                                                        AName(const char *)>());
 
-            const std::vector<AEntity *> (AWorld::*getEntitiesWithComponents)(std::vector<AName>) = &AWorld::GetEntitiesWithComponents;
+            //const std::vector<AEntity *> (AWorld::*getEntitiesWithComponents)(std::vector<AName>) = &AWorld::GetEntitiesWithComponents;
             sol::usertype<AWorld> world_type = Lua.new_usertype<AWorld>("AWorld");
-            world_type["GetEntitiesWithComponents"] = getEntitiesWithComponents;
+            //world_type["GetEntitiesWithComponents"] = getEntitiesWithComponents;
 
             AComponent *(AEntity::*getComponentOfType)(const AName &name) = &AEntity::GetComponentOfType;
             sol::usertype<AEntity> entity_type = Lua.new_usertype<AEntity>("AEntity");

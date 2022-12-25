@@ -24,7 +24,7 @@
 #include "./generated/core.gen.h"
 
 // TODO: arbitrary number, make it configurable and / or larger by default
-typedef std::bitset<200> ComponentBitset;
+typedef std::bitset<128> ComponentBitset;
 
 namespace Atlantis
 {
@@ -183,7 +183,7 @@ namespace Atlantis
 
         bool HasComponentOfType(const AName &name);
 
-        bool HasComponentsByMask(ComponentBitset mask);
+        bool HasComponentsByMask(const ComponentBitset &mask);
 
         bool HasComponentsOfType(const std::vector<AName> &names);
         //{
@@ -506,9 +506,9 @@ namespace Atlantis
 
         const std::vector<std::unique_ptr<AObject, no_deleter>> &GetObjectsByName(const AName &objectName);
 
-        const std::vector<AEntity *> GetEntitiesWithComponents(std::vector<AName> componentsNames);
+        const std::vector<AEntity *> GetEntitiesWithComponents(const ComponentBitset &componentsNames);
 
-        void ForEntitiesWithComponents(std::vector<AName> componentsNames, std::function<void(AEntity *)> lambda, bool parallel = false);
+        void ForEntitiesWithComponents(const ComponentBitset &componentMask, std::function<void(AEntity *)> lambda, bool parallel = false);
 
         ComponentBitset GetComponentMaskForComponents(std::vector<AName> componentsNames);
 
@@ -537,30 +537,28 @@ namespace Atlantis
         const std::vector<AEntity *> GetEntitiesWithComponents()
         {
             static std::vector<AName> names;
+            static ComponentBitset mask;
             if (names.size() == 0)
             {
-                // TODO: make less arbitrary
-                names.reserve(8);
-
                 GetNamesOfComponents<T, Types...>(names);
+                mask = GetComponentMaskForComponents(names);
             }
 
-            return GetEntitiesWithComponents(names);
+            return GetEntitiesWithComponents(mask);
         }
 
         template <typename T, typename... Types>
         void ForEntitiesWithComponents(std::function<void(AEntity *)> lambda, bool parallel = false)
         {
             static std::vector<AName> names;
+            static ComponentBitset mask;
             if (names.size() == 0)
             {
-                // TODO: make less arbitrary
-                names.reserve(8);
-
                 GetNamesOfComponents<T, Types...>(names);
+                mask = GetComponentMaskForComponents(names);
             }
 
-            ForEntitiesWithComponents(names, lambda, parallel);
+            ForEntitiesWithComponents(mask, lambda, parallel);
         }
     };
 

@@ -5,8 +5,8 @@ namespace Atlantis
 {
     void SRenderer::Process(AWorld *world)
     {
-        static const std::vector<AName> components = {"CRenderable", "CPosition", "CColor"};
-        // const auto& entities = world->GetEntitiesWithComponents(components);
+        static const ComponentBitset componentMask = world->GetComponentMaskForComponents({"CRenderable", "CPosition", "CColor"});
+        // const auto& entities = world->GetEntitiesWithComponents(componentMask);
 
         /*const auto& entities = world->GetEntitiesWithComponents<CRenderable, CPosition, CColor>();
         for (auto* e: entities)
@@ -20,7 +20,7 @@ namespace Atlantis
                 DrawTexture(tex->Texture, pos->x, pos->y, col->col);
         }*/
 
-        world->ForEntitiesWithComponents(components, [&](AEntity *e)
+        world->ForEntitiesWithComponents(componentMask, [&](AEntity *e)
                                          {
             CRenderable *ren = e->GetComponentOfType<CRenderable>();
             CPosition *pos = e->GetComponentOfType<CPosition>();

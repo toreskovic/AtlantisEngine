@@ -156,7 +156,7 @@ namespace Atlantis
         return false;
     }
 
-    bool AEntity::HasComponentsByMask(ComponentBitset mask)
+    bool AEntity::HasComponentsByMask(const ComponentBitset &mask)
     {
         return (mask & _componentMask) == mask;
     }
@@ -225,16 +225,12 @@ namespace Atlantis
         return GetObjectsByName(objectName).size();
     }
 
-    const std::vector<AEntity *> AWorld::GetEntitiesWithComponents(std::vector<AName> componentNames)
+    const std::vector<AEntity *> AWorld::GetEntitiesWithComponents(const ComponentBitset &componentMask)
     {
         std::vector<AEntity *> intersection;
         const auto &entities = GetObjectsByName("AEntity");
         intersection.reserve(entities.size());
 
-        // std::sort(componentNames.begin(), componentNames.end());
-        ComponentBitset componentMask = GetComponentMaskForComponents(componentNames);
-
-        // TODO: iterate only over entities for the componentName with the smallest amount of instances
         for (auto &entityObj : entities)
         {
             AEntity *entity = static_cast<AEntity *>(entityObj.get());
@@ -250,11 +246,9 @@ namespace Atlantis
         return intersection;
     }
 
-    void AWorld::ForEntitiesWithComponents(std::vector<AName> componentsNames, std::function<void(AEntity *)> lambda, bool parallel)
+    void AWorld::ForEntitiesWithComponents(const ComponentBitset &componentMask, std::function<void(AEntity *)> lambda, bool parallel)
     {
         const auto &entities = GetObjectsByName("AEntity");
-
-        ComponentBitset componentMask = GetComponentMaskForComponents(componentsNames);
 
         if (parallel)
         {
