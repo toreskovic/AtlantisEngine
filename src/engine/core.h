@@ -164,7 +164,7 @@ namespace Atlantis
         template <typename T>
         T *GetComponentOfType()
         {
-            const AName &name = T::GetClassDataStatic().Name;
+            static const AName &name = T::GetClassDataStatic().Name;
 
             for (auto *comp : Components)
             {
