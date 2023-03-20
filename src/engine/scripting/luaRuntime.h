@@ -164,12 +164,12 @@ namespace Atlantis
 
         AEntity *NewEntity()
         {
-            return World->NewObject<AEntity>();
+            return World->NewObject_Internal<AEntity>();
         }
 
         AComponent *NewComponent(const std::string &name)
         {
-            AComponent *newComponent = World->NewObject<AComponent>(name);
+            AComponent *newComponent = World->NewObject_Internal<AComponent>(name);
             return newComponent;
         }
 

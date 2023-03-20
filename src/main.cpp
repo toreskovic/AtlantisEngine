@@ -231,11 +231,11 @@ void PostHotReload()
     nlohmann::json serialized = _serialized;
     for (auto &ent : serialized["Entities"])
     {
-        AEntity *e = World.NewObject<AEntity>(AName("AEntity"));
+        AEntity *e = World.NewObject_Internal<AEntity>(AName("AEntity"));
 
         for (auto &comp : ent["Components"])
         {
-            AComponent *component = World.NewObject<AComponent>(comp["Name"].get<std::string>());
+            AComponent *component = World.NewObject_Internal<AComponent>(comp["Name"].get<std::string>());
             component->Deserialize(comp);
 
             e->AddComponent(component);

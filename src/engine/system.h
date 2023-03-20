@@ -23,6 +23,11 @@ namespace Atlantis
     virtual void Process(AWorld *world) override;
   };
 
+  struct ASyncSystem : public ASystem
+  {
+    virtual void Process(AWorld *world) override;
+  };
+
 } // namespace Atlantis
 
 #endif // !SYSTEM_H

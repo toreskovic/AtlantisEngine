@@ -21,8 +21,8 @@ namespace Atlantis
         DEF_PROPERTY();
         float z;
 
-        CPosition(){};
-        CPosition(const CPosition &other){};
+        CPosition() { _shouldBlockRenderThread = true; };
+        CPosition(const CPosition &other) { _shouldBlockRenderThread = true; };
     };
 
     struct CRenderable : public AComponent
@@ -32,8 +32,8 @@ namespace Atlantis
         DEF_PROPERTY();
         AResourceHandle textureHandle;
 
-        CRenderable(){};
-        CRenderable(const CRenderable &other){};
+        CRenderable(){ _shouldBlockRenderThread = true; };
+        CRenderable(const CRenderable &other){ _shouldBlockRenderThread = true; };
     };
 
     struct CVelocity : public AComponent
@@ -60,8 +60,8 @@ namespace Atlantis
         DEF_PROPERTY();
         Color col = WHITE;
 
-        CColor(){};
-        CColor(const CColor &other){};
+        CColor(){ _shouldBlockRenderThread = true; };
+        CColor(const CColor &other){ _shouldBlockRenderThread = true; };
     };
 
     struct SRenderer : public ASystem

@@ -1,4 +1,5 @@
 #include "system.h"
+#include "core.h"
 
 namespace Atlantis
 {
@@ -9,5 +10,10 @@ namespace Atlantis
   void ALambdaSystem::Process(AWorld *world)
   {
     Lambda(world);
+  }
+
+  void ASyncSystem::Process(AWorld *world)
+  {
+    world->SyncEntities();
   }
 }

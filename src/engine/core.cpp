@@ -172,6 +172,11 @@ namespace Atlantis
         DeadObjects[object->GetClassData().Name].push_back(object);
     }
 
+    void AWorld::QueueObjectDeletion(AObject *object)
+    {
+        ObjectDestroyQueue.push_back(object);
+    }
+
     void AWorld::RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels)
     {
         std::unique_ptr<ASystem> systemPtr(system);
@@ -207,10 +212,42 @@ namespace Atlantis
 
     void AWorld::ProcessSystems()
     {
+        SyncEntities();
+
         for (std::unique_ptr<ASystem> &system : Systems)
         {
             system->Process(this);
         }
+    }
+
+    void AWorld::SyncEntities()
+    {
+        // Process object creation queue
+        for (auto &command : ObjectCreateCommandsQueue)
+        {
+            command();
+        }
+
+        ObjectCreateCommandsQueue.clear();
+
+        // Process object deletion queue
+        for (auto &obj : ObjectDestroyQueue)
+        {
+            if (obj->_isAlive)
+            {
+                obj->MarkObjectDead();
+            }
+        }
+
+        ObjectDestroyQueue.clear();
+
+        // Process object iteration queue
+        for (auto &command : ObjectIterateQueue)
+        {
+            command();
+        }
+
+        ObjectIterateQueue.clear();
     }
 
     const std::vector<std::unique_ptr<AObject, no_deleter>> &AWorld::GetObjectsByName(const AName &objectName)

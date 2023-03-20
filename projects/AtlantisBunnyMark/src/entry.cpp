@@ -24,28 +24,29 @@ extern "C"
 {
     void createBunny()
     {
-        Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
 
-        AEntity *e = World->NewObject<AEntity>();
-
-        CPosition *p = World->NewObject<CPosition>();
+        World->QueueNewObject<AEntity>([](AEntity *e)
+                                       {
+        CPosition *p = World->NewObject_Internal<CPosition>();
         p->x = (float)(rand() % 640);
         p->y = (float)(rand() % 480);
 
-        CColor *c = World->NewObject<CColor>();
+        Color cols[] = {RED, GREEN, BLUE, PURPLE, YELLOW};
+
+        CColor *c = World->NewObject_Internal<CColor>();
         c->col = cols[rand() % 5];
 
-        CRenderable *r = World->NewObject<CRenderable>();
+        CRenderable *r = World->NewObject_Internal<CRenderable>();
         r->textureHandle = bunnyHandle;
 
-        CVelocity *v = World->NewObject<CVelocity>();
+        CVelocity *v = World->NewObject_Internal<CVelocity>();
         v->x = GetRandomValue(-250, 250);
         v->y = GetRandomValue(-250, 250);
 
         e->AddComponent(p);
         e->AddComponent(c);
         e->AddComponent(r);
-        e->AddComponent(v);
+        e->AddComponent(v); });
     };
 
     void RegisterSystems()
@@ -176,7 +177,7 @@ extern "C"
                         continue;
                     }
 
-                    e->MarkObjectDead();
+                    world->QueueObjectDeletion(e);
                     count++;
                 }
             } },

@@ -110,6 +110,8 @@ namespace Atlantis
     {
         AEntity *Owner;
 
+        bool _shouldBlockRenderThread = false;
+
         virtual void OnAddedToEntity(AEntity *entity)
         {
             Owner = entity;
@@ -299,6 +301,11 @@ namespace Atlantis
         }
     };
 
+    struct AObjectCreateCommand
+    {
+        std::function<void()> Callback;
+    };
+
     struct AWorld
     {
         std::map<AName, AClassData, ANameComparer> CData;
@@ -308,6 +315,10 @@ namespace Atlantis
         std::map<AName, std::vector<AObjPtr<AObject>>> DeadObjects;
         std::vector<std::unique_ptr<ASystem>> Systems;
         AResourceHolder ResourceHolder;
+
+        std::vector<std::function<void()>> ObjectCreateCommandsQueue;
+        std::vector<std::function<void()>> ObjectIterateQueue;
+        std::vector<AObject*> ObjectDestroyQueue;
 
         std::vector<AName> ComponentNames;
 
@@ -458,7 +469,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        T *NewObject(const AName &name)
+        T *NewObject_Internal(const AName &name)
         {
             T *obj = NewObject_Base<T>(name);
 
@@ -467,14 +478,14 @@ namespace Atlantis
 
         /*template <typename T,
                   std::enable_if_t<!std::is_base_of_v<AEntity, T>> * = nullptr>
-        T *NewObject(const AName &name)
+        T *NewObject_Internal(const AName &name)
         {
             return NewObject_Base<T>(name);
         }
 
         template <typename T,
                   std::enable_if_t<std::is_base_of_v<AEntity, T>> * = nullptr>
-        T *NewObject(const AName &name)
+        T *NewObject_Internal(const AName &name)
         {
             T *obj = NewObject_Base<T>(name);
             obj->World = this;
@@ -483,12 +494,29 @@ namespace Atlantis
         }*/
 
         template <typename T>
-        T *NewObject()
+        T *NewObject_Internal()
         {
-            return NewObject<T>(T::GetClassDataStatic().Name);
+            return NewObject_Internal<T>(T::GetClassDataStatic().Name);
+        }
+
+        template <typename T>
+        void QueueNewObject(std::function<void(T *)> lambda)
+        {
+            ObjectCreateCommandsQueue.push_back([this, lambda]()
+            {
+                T* obj = NewObject_Internal<T>();
+                lambda(obj);
+            });
+        }
+
+        void QueueEntityIterator(std::function<void()> lambda)
+        {
+            ObjectIterateQueue.push_back(lambda);
         }
 
         void MarkObjectDead(AObject *object);
+
+        void QueueObjectDeletion(AObject *object);
 
         ~AWorld()
         {
@@ -503,6 +531,8 @@ namespace Atlantis
         void RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels = {}, const std::vector<AName> &beforeLabels = {});
 
         void ProcessSystems();
+
+        void SyncEntities();
 
         const std::vector<std::unique_ptr<AObject, no_deleter>> &GetObjectsByName(const AName &objectName);
 
@@ -533,6 +563,20 @@ namespace Atlantis
             GetNamesOfComponents<T2, Types...>(names);
         }
 
+        template <typename T>
+        bool ShouldComponentsBlockRenderThread()
+        {
+            static bool tmp = GetCDO<T>(T::GetClassDataStatic().Name)->_shouldBlockRenderThread;
+            return tmp;
+        }
+
+        template <typename T1, typename T2, typename... Types>
+        bool ShouldComponentsBlockRenderThread()
+        {
+            static bool tmp = GetCDO<T1>(T1::GetClassDataStatic().Name)->_shouldBlockRenderThread || ShouldComponentsBlockRenderThread<T2, Types...>();
+            return tmp;
+        }
+
         template <typename T, typename... Types>
         const std::vector<AEntity *> GetEntitiesWithComponents()
         {
@@ -547,18 +591,36 @@ namespace Atlantis
             return GetEntitiesWithComponents(mask);
         }
 
+        // TODO:
+        // Check if the component type should block render (or physics or something) thread
+        // If it does, then we need to queue the lambda to be executed during the sync phase
+        // Otherwise, we can execute it immediately
+        // If the component type is const, then we can execute it immediately as well
+
         template <typename T, typename... Types>
         void ForEntitiesWithComponents(std::function<void(AEntity *)> lambda, bool parallel = false)
         {
             static std::vector<AName> names;
             static ComponentBitset mask;
+            static bool shouldQueue = false;
             if (names.size() == 0)
             {
                 GetNamesOfComponents<T, Types...>(names);
                 mask = GetComponentMaskForComponents(names);
+                shouldQueue = ShouldComponentsBlockRenderThread<T, Types...>();
             }
 
-            ForEntitiesWithComponents(mask, lambda, parallel);
+            if (shouldQueue)
+            {
+                QueueEntityIterator([this, lambda, parallel]()
+                {
+                    ForEntitiesWithComponents(mask, lambda, parallel);
+                });
+            }
+            else
+            {
+                ForEntitiesWithComponents(mask, lambda, parallel);
+            }
         }
     };
 
