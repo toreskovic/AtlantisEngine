@@ -317,7 +317,7 @@ namespace Atlantis
         AResourceHolder ResourceHolder;
 
         std::vector<std::function<void()>> ObjectCreateCommandsQueue;
-        std::vector<std::function<void()>> ObjectIterateQueue;
+        std::vector<std::function<void()>> ObjectModifyQueue;
         std::vector<AObject*> ObjectDestroyQueue;
 
         std::vector<AName> ComponentNames;
@@ -509,10 +509,9 @@ namespace Atlantis
             });
         }
 
-        void QueueEntityIterator(std::function<void()> lambda)
-        {
-            ObjectIterateQueue.push_back(lambda);
-        }
+        void QueueSystem(std::function<void()> lambda);
+
+        void QueueModifyObject(AObject *object, std::function<void(AObject *)> lambda);
 
         void MarkObjectDead(AObject *object);
 
@@ -612,7 +611,7 @@ namespace Atlantis
 
             if (shouldQueue)
             {
-                QueueEntityIterator([this, lambda, parallel]()
+                QueueSystem([this, lambda, parallel]()
                 {
                     ForEntitiesWithComponents(mask, lambda, parallel);
                 });

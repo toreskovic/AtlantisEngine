@@ -166,6 +166,17 @@ namespace Atlantis
         return HasComponentsByMask(World->GetComponentMaskForComponents(names));
     }
 
+    void AWorld::QueueSystem(std::function<void()> lambda)
+    {
+        ObjectModifyQueue.push_back(lambda);
+    }
+
+    void AWorld::QueueModifyObject(AObject *object, std::function<void(AObject *)> lambda)
+    {
+        ObjectModifyQueue.push_back([object, lambda]()
+                                    { lambda(object); });
+    }
+
     void AWorld::MarkObjectDead(AObject *object)
     {
         object->_isAlive = false;
@@ -242,12 +253,12 @@ namespace Atlantis
         ObjectDestroyQueue.clear();
 
         // Process object iteration queue
-        for (auto &command : ObjectIterateQueue)
+        for (auto &command : ObjectModifyQueue)
         {
             command();
         }
 
-        ObjectIterateQueue.clear();
+        ObjectModifyQueue.clear();
     }
 
     const std::vector<std::unique_ptr<AObject, no_deleter>> &AWorld::GetObjectsByName(const AName &objectName)
