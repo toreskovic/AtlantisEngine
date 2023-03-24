@@ -517,6 +517,8 @@ namespace Atlantis
 
         void QueueObjectDeletion(AObject *object);
 
+        float GetDeltaTime() const;
+
         ~AWorld()
         {
             for (auto thing : AllocatorHelpers)
@@ -621,6 +623,12 @@ namespace Atlantis
                 ForEntitiesWithComponents(mask, lambda, parallel);
             }
         }
+
+private:
+        double _lastFrameTime = 0.0;
+        double _currentFrameTime = 0.0;
+
+        float _deltaTime = 0.001f;
     };
 
     template <typename T>

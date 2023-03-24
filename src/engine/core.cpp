@@ -188,6 +188,11 @@ namespace Atlantis
         ObjectDestroyQueue.push_back(object);
     }
 
+    float AWorld::GetDeltaTime() const
+    {
+        return _deltaTime;
+    }
+
     void AWorld::RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels)
     {
         std::unique_ptr<ASystem> systemPtr(system);
@@ -223,12 +228,21 @@ namespace Atlantis
 
     void AWorld::ProcessSystems()
     {
+        _currentFrameTime = GetTime();
+
+        if (_lastFrameTime > 0.0f)
+        {
+            _deltaTime = _currentFrameTime - _lastFrameTime;
+        }
+
         SyncEntities();
 
         for (std::unique_ptr<ASystem> &system : Systems)
         {
             system->Process(this);
         }
+
+        _lastFrameTime = _currentFrameTime;
     }
 
     void AWorld::SyncEntities()

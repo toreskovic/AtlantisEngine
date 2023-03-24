@@ -57,13 +57,13 @@ extern "C"
 
         auto bunnySystem = [](AWorld *world)
         {
-            world->ForEntitiesWithComponents<CPosition, CVelocity>([](AEntity *e)
+            world->ForEntitiesWithComponents<CPosition, CVelocity>([world](AEntity *e)
                                                                    {
                 CVelocity *vel = e->GetComponentOfType<CVelocity>();
                 CPosition *pos = e->GetComponentOfType<CPosition>();
 
-                pos->x += vel->x * GetFrameTime();
-                pos->y += vel->y * GetFrameTime();
+                pos->x += vel->x * world->GetDeltaTime();
+                pos->y += vel->y * world->GetDeltaTime();
 
                 if (((pos->x + 16) > GetScreenWidth()) || ((pos->x + 16) < 0))
                 {
@@ -103,23 +103,24 @@ extern "C"
         World->RegisterSystem(bunnySystem,
                               {"Physics"}, {"BeginRender"});*/
 
-        static float fps = 0;
+        static float fps = 0.0f;
 
         World->RegisterSystem([](AWorld *world)
                               {
-            static auto timer = Timer(1000);
+            static auto timer = Timer(100);
             static float fpsAggregator = 0.0f;
             static int fpsCounter = 0;
 
-            fpsAggregator += 1.0f / GetFrameTime();
+            fpsAggregator += 1.0f / world->GetDeltaTime();
             fpsCounter++;
             if (timer())
             {
-                fps = fpsAggregator / fpsCounter;
+                float currentFps = fpsAggregator / fpsCounter;
+                fps = fps * 0.7f + currentFps * 0.3f;
 
                 fpsAggregator = 0.0f;
                 fpsCounter = 0;
-                timer = Timer(1000);
+                timer = Timer(100);
             }
 
             auto fpsStr = fmt::format("FPS: {:.2f}", fps);
