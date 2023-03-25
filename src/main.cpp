@@ -72,6 +72,12 @@ void RegisterTypes()
     World.RegisterDefault<CColor>();
     World.RegisterDefault<CVelocity>();
     World.RegisterDefault<CRenderable>();
+
+    if (!LibTempName.empty() && LibPtr != nullptr)
+    {
+        auto registerTypes = LibPtr->get_function<void()>("RegisterTypes");
+        registerTypes();
+    }
 }
 
 void RegisterSystems()
@@ -276,10 +282,12 @@ void LoadGameLib()
         auto postHotReload = LibPtr->get_function<void()>("PostHotReload");
         postHotReload();
     }
-
-    if (!GameLibInitialized)
+    else
     {
         GameLibInitialized = true;
+
+        auto registerTypes = LibPtr->get_function<void()>("RegisterTypes");
+        registerTypes();
 
         auto init = LibPtr->get_function<void()>("Init");
         init();

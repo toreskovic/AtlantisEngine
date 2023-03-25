@@ -366,7 +366,10 @@ namespace Atlantis
             T *objPtr = &obj;
             if (dynamic_cast<AComponent *>(objPtr) != nullptr)
             {
-                ComponentNames.push_back(objName);
+                if (std::find(ComponentNames.begin(), ComponentNames.end(), objName) == ComponentNames.end())
+                {
+                    ComponentNames.push_back(objName);
+                }
             }
 
             ObjectLists[objName].reserve(allocatorHelper.Limit);
