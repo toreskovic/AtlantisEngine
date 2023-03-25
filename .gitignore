@@ -3,3 +3,9 @@
 build
 *.gen.h
 project.aeng
+
+# project folders
+/projects/*
+!/projects/AtlantisBunnyMark/*
+!/projects/AtlantisBunnyMarkLua/*
+!/projects/AtlantisGame/*
