@@ -58,7 +58,10 @@ namespace Atlantis
             nlohmann::json propJson = {{"Name", propData.Name.GetName()}, {"Type", propData.Type.GetName()}, {"Offset", propData.Offset}};
             const AObject *cdo = World->GetCDO<AObject>(classData.Name);
 
+            SERIALIZE_PROP_HELPER(bool);
+            SERIALIZE_PROP_HELPER(int);
             SERIALIZE_PROP_HELPER(float);
+            SERIALIZE_PROP_HELPER(double);
             SERIALIZE_PROP_HELPER(Color);
             SERIALIZE_PROP_HELPER(Texture2D);
             SERIALIZE_PROP_HELPER(std::string);
@@ -80,7 +83,10 @@ namespace Atlantis
                 continue;
             }
 
+            DESERIALIZE_PROP_HELPER(bool);
+            DESERIALIZE_PROP_HELPER(int);
             DESERIALIZE_PROP_HELPER(float);
+            DESERIALIZE_PROP_HELPER(double);
             DESERIALIZE_PROP_HELPER(Color);
             DESERIALIZE_PROP_HELPER(Texture2D);
             DESERIALIZE_PROP_HELPER(std::string);
