@@ -22,6 +22,8 @@ typedef struct tagMSG *LPMSG; // All USER defines and routines
 #include "engine/renderer/renderer.h"
 #include "nlohmann/json.hpp"
 #include "fmt/core.h"
+#include <thread>
+#include <atomic>
 
 #include <omp.h>
 
@@ -65,6 +67,8 @@ AWorld World;
 
 ALuaRuntime LuaRuntime;
 
+std::atomic<bool> ExitSignal = false;
+
 void RegisterTypes()
 {
     World.RegisterDefault<AEntity>();
@@ -72,6 +76,7 @@ void RegisterTypes()
     World.RegisterDefault<CColor>();
     World.RegisterDefault<CVelocity>();
     World.RegisterDefault<CRenderable>();
+    World.RegisterDefault<CCamera>();
 
     if (!LibTempName.empty() && LibPtr != nullptr)
     {
@@ -86,11 +91,11 @@ void RegisterSystems()
                          {
         BeginDrawing();
         ClearBackground(RAYWHITE); },
-                         {"BeginRender"}, {"Render"});
+                         {"BeginRender"}, {"Render"}, true);
 
     World.RegisterSystem([](AWorld *world)
                          { EndDrawing(); },
-                         {"EndRender"});
+                         {"EndRender"}, {}, true);
 }
 
 void DoMain();
@@ -126,6 +131,8 @@ void DoMain()
             cpuThreadCount /= 2;
         }
 
+        // reserved for render thread
+        cpuThreadCount -= 1;
         std::cout << "Setting used CPU thread count to: " << cpuThreadCount << std::endl;
     }
 
@@ -138,7 +145,19 @@ void DoMain()
 
     // Raylib Initialization
     //--------------------------------------------------------------------------------------
-    InitWindow(screenWidth, screenHeight, "AtlantisEngine");
+    // start render thread for raylib
+    std::thread RenderThread([]()
+                             {
+        InitWindow(screenWidth, screenHeight, "AtlantisEngine");
+        //SetTargetFPS(120);
+        while (!WindowShouldClose())
+        {
+            World.ProcessSystemsRenderThread(); 
+        }
+        World.ResourceHolder.Resources.clear();
+        CloseWindow();
+        World.OnShutdown();
+        ExitSignal = true; });
 
     RegisterTypes();
     RegisterSystems();
@@ -164,11 +183,13 @@ void DoMain()
 
     // Main game loop
     //--------------------------------------------------------------------------------------
-    while (!WindowShouldClose())
+    while (ExitSignal == false)
     {
         if (HotReloadTimer())
         {
+            World.RenderThreadMutex.lock();
             LoadGameLib();
+            World.RenderThreadMutex.unlock();
         }
 
         World.ProcessSystems();
@@ -176,9 +197,8 @@ void DoMain()
 #endif
 
     // De-Initialization
-    World.ResourceHolder.Resources.clear();
+    RenderThread.join();
     LuaRuntime.UnloadLua();
-    CloseWindow();
     //--------------------------------------------------------------------------------------
 
     if (LibPtr != nullptr)
@@ -216,6 +236,7 @@ nlohmann::json _serialized;
 
 void PreHotReload()
 {
+    World.OnPreHotReload();
     const auto &entities = World.GetObjectsByName("AEntity");
 
     nlohmann::json serialized;
@@ -248,6 +269,7 @@ void PostHotReload()
         }
     }
 
+    World.OnPostHotReload();
     std::cout << "posthotreload" << std::endl;
 }
 

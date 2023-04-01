@@ -13,7 +13,9 @@
 #include <string>
 #include <type_traits>
 #include <bitset>
-
+#include <mutex>
+#include <thread>
+#include <atomic>
 #include <iostream>
 
 #include <sol/sol.hpp>
@@ -233,21 +235,17 @@ namespace Atlantis
 
     struct AResourceHolder
     {
+        AWorld *World = nullptr;
         std::unordered_map<std::string, std::unique_ptr<AResource>> Resources;
 
-        AResourceHandle GetTexture(std::string path)
+        AResourceHolder(AWorld *world)
         {
-            if (Resources.contains(path))
-            {
-                AResourceHandle ret(Resources.at(path).get());
-                return ret;
-            }
-
-            Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str()))));
-
-            AResourceHandle ret(Resources.at(path).get());
-            return ret;
+            World = world;
         }
+
+        AResourceHandle GetTexture(std::string path);
+
+        void* GetResourcePtr(std::string path);
     };
 
     template <typename T>
@@ -314,13 +312,22 @@ namespace Atlantis
         std::map<AName, std::vector<std::unique_ptr<AObject, no_deleter>>, ANameComparer> ObjectLists;
         std::map<AName, std::vector<AObjPtr<AObject>>> DeadObjects;
         std::vector<std::unique_ptr<ASystem>> Systems;
-        AResourceHolder ResourceHolder;
+        // TEMP for testing
+        std::vector<std::unique_ptr<ASystem>> SystemsRenderThread;
+        std::mutex RenderThreadMutex;
+        const std::thread::id MAIN_THREAD_ID = std::this_thread::get_id();
+        std::vector<std::function<void()>> RenderThreadCallQueue;
+
+        AResourceHolder ResourceHolder = AResourceHolder(this);
 
         std::vector<std::function<void()>> ObjectCreateCommandsQueue;
         std::vector<std::function<void()>> ObjectModifyQueue;
         std::vector<AObject*> ObjectDestroyQueue;
 
         std::vector<AName> ComponentNames;
+
+        std::atomic<bool> MainThreadProcessing = false;
+        std::atomic<bool> RenderThreadProcessing = false;
 
         struct AllocatorMemoryHelper
         {
@@ -391,6 +398,7 @@ namespace Atlantis
         template <typename T>
         T *NewObject_Base(const AName &name)
         {
+            _registryVersion++;
             const T *CDO = GetCDO<T>(name);
 
             AClassData classData = CDO->GetClassData();
@@ -521,6 +529,8 @@ namespace Atlantis
         void QueueObjectDeletion(AObject *object);
 
         float GetDeltaTime() const;
+        
+        uint GetRegistryVersion() const;
 
         ~AWorld()
         {
@@ -532,9 +542,13 @@ namespace Atlantis
 
         void RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels = {});
 
-        void RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels = {}, const std::vector<AName> &beforeLabels = {});
+        void RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels = {}, const std::vector<AName> &beforeLabels = {}, bool renderThread = false);
 
         void ProcessSystems();
+        
+        void ProcessSystemsRenderThread();
+
+        void QueueRenderThreadCall(std::function<void()> lambda);
 
         void SyncEntities();
 
@@ -549,6 +563,12 @@ namespace Atlantis
         size_t GetObjectCountByType(const AName &objectName);
 
         void Clear();
+
+        void OnPreHotReload();
+
+        void OnPostHotReload();
+
+        void OnShutdown();
 
         template <typename T>
         void GetNamesOfComponents(std::vector<AName> &names)
@@ -577,12 +597,12 @@ namespace Atlantis
         template <typename T1, typename T2, typename... Types>
         bool ShouldComponentsBlockRenderThread()
         {
-            static bool tmp = GetCDO<T1>(T1::GetClassDataStatic().Name)->_shouldBlockRenderThread || ShouldComponentsBlockRenderThread<T2, Types...>();
+            static bool tmp = (std::is_const<T1>::value ? false : GetCDO<T1>(T1::GetClassDataStatic().Name)->_shouldBlockRenderThread) || ShouldComponentsBlockRenderThread<T2, Types...>();
             return tmp;
         }
 
         template <typename T, typename... Types>
-        const std::vector<AEntity *> GetEntitiesWithComponents()
+        const std::vector<AEntity *>& GetEntitiesWithComponents()
         {
             static std::vector<AName> names;
             static ComponentBitset mask;
@@ -592,7 +612,16 @@ namespace Atlantis
                 mask = GetComponentMaskForComponents(names);
             }
 
-            return GetEntitiesWithComponents(mask);
+            static uint lastRegistryVersion = GetRegistryVersion();
+            static auto entities = GetEntitiesWithComponents(mask);
+
+            if (lastRegistryVersion != GetRegistryVersion())
+            {
+                lastRegistryVersion = GetRegistryVersion();
+                entities = GetEntitiesWithComponents(mask);
+            }
+
+            return entities;
         }
 
         // TODO:
@@ -632,6 +661,9 @@ private:
         double _currentFrameTime = 0.0;
 
         float _deltaTime = 0.001f;
+
+        uint _frame = 0;
+        uint _registryVersion = 0;
     };
 
     template <typename T>

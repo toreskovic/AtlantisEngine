@@ -15,6 +15,8 @@
 
 namespace Atlantis
 {
+    class AResourceHolder;
+
     struct AName
     {
         std::vector<char> Name;
@@ -119,9 +121,17 @@ namespace Atlantis
     struct AResourceHandle
     {
         size_t Address = 0;
+        AName ResourcePath;
+        AResourceHolder* ResourceHolder = nullptr;
 
         AResourceHandle()
         {
+        }
+        
+        AResourceHandle(AResourceHolder* resourceHolder, std::string path)
+        {
+            ResourceHolder = resourceHolder;
+            ResourcePath = path;
         }
 
         AResourceHandle(AResource* ptr)
@@ -132,13 +142,16 @@ namespace Atlantis
         AResourceHandle(const AResourceHandle& other)
         {
             Address = other.Address;
+            ResourcePath = other.ResourcePath;
+            ResourceHolder = other.ResourceHolder;
         }
+
+        void* GetPtr();
 
         template <typename T>
         T *get()
         {
-            void* ptr = (void*)Address;
-            return static_cast<T *>(ptr);
+            return static_cast<T *>(GetPtr());
         }
 
         bool operator==(const AResourceHandle& other) const
@@ -149,6 +162,8 @@ namespace Atlantis
         void operator=(const AResourceHandle& other)
         {
             Address = other.Address;
+            ResourcePath = other.ResourcePath;
+            ResourceHolder = other.ResourceHolder;
         }
     };
 

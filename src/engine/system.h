@@ -13,6 +13,8 @@ namespace Atlantis
   {
     std::unordered_set<AName, ANameHashFunction> Labels;
 
+    bool IsRenderSystem = false;
+
     virtual void Process(AWorld *world);
   };
 

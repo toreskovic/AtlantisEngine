@@ -64,8 +64,24 @@ namespace Atlantis
         CColor(const CColor &other){ _shouldBlockRenderThread = true; };
     };
 
+    struct CCamera : public AComponent
+    {
+        DEF_CLASS();
+
+        DEF_PROPERTY();
+        float Zoom = 1.0f;
+
+        CCamera(){ _shouldBlockRenderThread = true; };
+        CCamera(const CCamera &other){ _shouldBlockRenderThread = true; };
+    };
+
     struct SRenderer : public ASystem
     {
+        SRenderer()
+        {
+            IsRenderSystem = true;
+        }
+
         virtual void Process(AWorld *world) override;
     };
 }

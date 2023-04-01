@@ -179,14 +179,17 @@ namespace Atlantis
 
     void AWorld::QueueModifyObject(AObject *object, std::function<void(AObject *)> lambda)
     {
-        ObjectModifyQueue.push_back([object, lambda]()
-                                    { lambda(object); });
+        ObjectModifyQueue.push_back([object, lambda, this]()
+                                    { 
+                        lambda(object);
+                        _registryVersion++; });
     }
 
     void AWorld::MarkObjectDead(AObject *object)
     {
         object->_isAlive = false;
         DeadObjects[object->GetClassData().Name].push_back(object);
+        _registryVersion++;
     }
 
     void AWorld::QueueObjectDeletion(AObject *object)
@@ -199,41 +202,72 @@ namespace Atlantis
         return _deltaTime;
     }
 
+    uint AWorld::GetRegistryVersion() const
+    {
+        return _registryVersion;
+    }
+
     void AWorld::RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels)
     {
         std::unique_ptr<ASystem> systemPtr(system);
 
-        if (beforeLabels.size() > 0)
+        if (system->IsRenderSystem)
         {
-            for (int i = 0; i < Systems.size(); i++)
+            if (beforeLabels.size() > 0)
             {
-                const ASystem *sys = Systems[i].get();
-
-                for (const AName &label : beforeLabels)
+                for (int i = 0; i < SystemsRenderThread.size(); i++)
                 {
-                    if (sys->Labels.count(label))
+                    const ASystem *sys = SystemsRenderThread[i].get();
+
+                    for (const AName &label : beforeLabels)
                     {
-                        Systems.insert(Systems.begin() + i, std::move(systemPtr));
-                        return;
+                        if (sys->Labels.count(label))
+                        {
+                            SystemsRenderThread.insert(SystemsRenderThread.begin() + i, std::move(systemPtr));
+                            return;
+                        }
                     }
                 }
             }
-        }
 
-        Systems.push_back(std::move(systemPtr));
+            SystemsRenderThread.push_back(std::move(systemPtr));
+        }
+        else
+        {
+            if (beforeLabels.size() > 0)
+            {
+                for (int i = 0; i < Systems.size(); i++)
+                {
+                    const ASystem *sys = Systems[i].get();
+
+                    for (const AName &label : beforeLabels)
+                    {
+                        if (sys->Labels.count(label))
+                        {
+                            Systems.insert(Systems.begin() + i, std::move(systemPtr));
+                            return;
+                        }
+                    }
+                }
+            }
+
+            Systems.push_back(std::move(systemPtr));
+        }
     }
 
-    void AWorld::RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels, const std::vector<AName> &beforeLabels)
+    void AWorld::RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels, const std::vector<AName> &beforeLabels, bool renderThread /* false */)
     {
         ALambdaSystem *system = new ALambdaSystem();
         system->Lambda = lambda;
         system->Labels = {labels.begin(), labels.end()};
+        system->IsRenderSystem = renderThread;
 
         RegisterSystem(system, beforeLabels);
     }
 
     void AWorld::ProcessSystems()
     {
+        _frame++;
         _currentFrameTime = GetTime();
 
         if (_lastFrameTime > 0.0f)
@@ -251,15 +285,55 @@ namespace Atlantis
         _lastFrameTime = _currentFrameTime;
     }
 
+    void AWorld::ProcessSystemsRenderThread()
+    {
+        while (MainThreadProcessing)
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(1));
+        }
+
+        RenderThreadMutex.lock();
+        RenderThreadProcessing = true;
+
+        for (std::function<void()> &lambda : RenderThreadCallQueue)
+        {
+            lambda();
+        }
+
+        RenderThreadCallQueue.clear();
+
+        for (std::unique_ptr<ASystem> &system : SystemsRenderThread)
+        {
+            system->Process(this);
+        }
+
+        RenderThreadProcessing = false;
+        MainThreadProcessing = true;
+        RenderThreadMutex.unlock();
+    }
+
+    void AWorld::QueueRenderThreadCall(std::function<void()> lambda)
+    {
+        RenderThreadMutex.lock();
+        RenderThreadCallQueue.push_back(lambda);
+        RenderThreadMutex.unlock();
+    }
+
     void AWorld::SyncEntities()
     {
+        while (RenderThreadProcessing)
+        {
+            std::this_thread::sleep_for(std::chrono::microseconds(1));
+        }
+
+        RenderThreadMutex.lock();
+        MainThreadProcessing = true;
+
         // Process object creation queue
         for (auto &command : ObjectCreateCommandsQueue)
         {
             command();
         }
-
-        ObjectCreateCommandsQueue.clear();
 
         // Process object deletion queue
         for (auto &obj : ObjectDestroyQueue)
@@ -270,14 +344,18 @@ namespace Atlantis
             }
         }
 
-        ObjectDestroyQueue.clear();
-
         // Process object iteration queue
         for (auto &command : ObjectModifyQueue)
         {
             command();
         }
 
+        MainThreadProcessing = false;
+        RenderThreadProcessing = true;
+        RenderThreadMutex.unlock();
+
+        ObjectCreateCommandsQueue.clear();
+        ObjectDestroyQueue.clear();
         ObjectModifyQueue.clear();
     }
 
@@ -371,10 +449,78 @@ namespace Atlantis
         ObjectLists.clear();
         DeadObjects.clear();
         Systems.clear();
+        SystemsRenderThread.clear();
+        ObjectCreateCommandsQueue.clear();
+        ObjectDestroyQueue.clear();
+        ObjectModifyQueue.clear();
+        ComponentNames.clear();
 
         for (auto thing : AllocatorHelpers)
         {
             free((void *)thing.second.Start);
         }
+
+        AllocatorHelpers.clear();
     }
+
+    void AWorld::OnPreHotReload()
+    {
+        ObjectCreateCommandsQueue.clear();
+        ObjectDestroyQueue.clear();
+        ObjectModifyQueue.clear();
+    }
+
+    void AWorld::OnPostHotReload()
+    {
+        // TODO: hack
+        _currentFrameTime = GetTime();
+        _deltaTime = 0.0001f;
+        _lastFrameTime = _currentFrameTime - _deltaTime;
+        _frame++;
+    }
+
+    void AWorld::OnShutdown()
+    {
+        MainThreadProcessing = false;
+        RenderThreadProcessing = false;
+    }
+
+    AResourceHandle AResourceHolder::GetTexture(std::string path)
+    {
+        if (World == nullptr)
+        {
+            std::cout << "AResourceHolder::GetTexture | Error: World is null" << std::endl;
+            return AResourceHandle();
+        }
+
+        if (Resources.contains(path))
+        {
+            AResourceHandle ret(Resources.at(path).get());
+            return ret;
+        }
+
+        if (World->MAIN_THREAD_ID == std::this_thread::get_id())
+        {
+            World->QueueRenderThreadCall([this, path]()
+                                         { Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str())))); });
+        }
+        else
+        {
+            Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str()))));
+        }
+
+        AResourceHandle ret(this, path);
+        return ret;
+    }
+
+    void *AResourceHolder::GetResourcePtr(std::string path)
+    {
+        if (Resources.contains(path))
+        {
+            return Resources.at(path).get();
+        }
+
+        return nullptr;
+    }
+
 } // namespace Atlantis
