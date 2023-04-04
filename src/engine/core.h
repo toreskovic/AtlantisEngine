@@ -23,6 +23,8 @@
 #include "reflection/reflectionHelpers.h"
 #include "baseTypeSerialization.h"
 #include "helpers.h"
+#include "engine/system.h"
+#include "engine/profiling.h"
 #include "./generated/core.gen.h"
 
 // TODO: arbitrary number, make it configurable and / or larger by default
@@ -315,6 +317,7 @@ namespace Atlantis
         // TEMP for testing
         std::vector<std::unique_ptr<ASystem>> SystemsRenderThread;
         std::mutex RenderThreadMutex;
+        std::mutex ProfilingMutex;
         const std::thread::id MAIN_THREAD_ID = std::this_thread::get_id();
         std::vector<std::function<void()>> RenderThreadCallQueue;
 
@@ -328,6 +331,9 @@ namespace Atlantis
 
         std::atomic<bool> MainThreadProcessing = false;
         std::atomic<bool> RenderThreadProcessing = false;
+
+        SSimpleProfiler* ProfilerMainThread;
+        SSimpleProfiler* ProfilerRenderThread;
 
         struct AllocatorMemoryHelper
         {
@@ -529,6 +535,8 @@ namespace Atlantis
         void QueueObjectDeletion(AObject *object);
 
         float GetDeltaTime() const;
+
+        bool IsMainThread() const;
         
         uint GetRegistryVersion() const;
 
@@ -543,6 +551,41 @@ namespace Atlantis
         void RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels = {});
 
         void RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels = {}, const std::vector<AName> &beforeLabels = {}, bool renderThread = false);
+
+        template <typename T>
+        T* GetSystem(const AName &name)
+        {
+            ASystem* retSystem = nullptr;
+
+            if (IsMainThread())
+            {
+                std::find_if(Systems.begin(), Systems.end(), [&name, &retSystem] (const std::unique_ptr<ASystem> &system)
+                {
+                    if (system->Labels.contains(name))
+                    {
+                        retSystem = system.get();
+                        return true;
+                    }
+                    return false;
+                });
+
+                return dynamic_cast<T*>(retSystem);
+            }
+            else
+            {
+                std::find_if(SystemsRenderThread.begin(), SystemsRenderThread.end(), [&name, &retSystem](const std::unique_ptr<ASystem> &system)
+                {
+                    if (system->Labels.contains(name))
+                    {
+                        retSystem = system.get();
+                        return true;
+                    }
+                    return false;
+                });
+
+                return dynamic_cast<T*>(retSystem);
+            }
+        }
 
         void ProcessSystems();
         
@@ -624,6 +667,30 @@ namespace Atlantis
             return entities;
         }
 
+        template <typename T>
+        struct identity
+        {
+            typedef T type;
+        };
+
+        template<typename T>
+        struct fun_type
+        {
+            using type = void;
+        };
+
+        template<typename Ret, typename Class, typename... Args>
+        struct fun_type<Ret(Class::*)(Args...) const>
+        {
+            using type = std::function<Ret(Args...)>;
+        };
+
+        template<typename F>
+        typename fun_type<decltype(&F::operator())>::type lambdaToFun(F const &func)
+        {
+            return func;
+        }
+
         // TODO:
         // Check if the component type should block render (or physics or something) thread
         // If it does, then we need to queue the lambda to be executed during the sync phase
@@ -631,7 +698,7 @@ namespace Atlantis
         // If the component type is const, then we can execute it immediately as well
 
         template <typename T, typename... Types>
-        void ForEntitiesWithComponents(std::function<void(AEntity *)> lambda, bool parallel = false)
+        void ForEntitiesWithComponents(identity<std::function<void(AEntity*, T*, Types*...)>>::type lambda, bool parallel = false)
         {
             static std::vector<AName> names;
             static ComponentBitset mask;
@@ -643,18 +710,61 @@ namespace Atlantis
                 shouldQueue = ShouldComponentsBlockRenderThread<T, Types...>();
             }
 
+            std::function<void(AEntity *)> lambdaWrapper = [lambda](AEntity *entity)
+            {
+                lambda(entity, entity->GetComponentOfType<T>(), entity->GetComponentOfType<Types>()...);
+            };
+
             if (shouldQueue)
             {
-                QueueSystem([this, lambda, parallel]()
+                QueueSystem([this, lambdaWrapper, parallel]()
                 {
-                    ForEntitiesWithComponents(mask, lambda, parallel);
+                    ForEntitiesWithComponents(mask, lambdaWrapper, parallel);
                 });
             }
             else
             {
-                ForEntitiesWithComponents(mask, lambda, parallel);
+                ForEntitiesWithComponents(mask, lambdaWrapper, parallel);
             }
         }
+
+        template <typename T, typename... Types>
+        void ForEntitiesWithComponents2(std::function<void(AEntity*, T*, Types*...)> lambda, bool parallel = false)
+        {
+            static std::vector<AName> names;
+            static ComponentBitset mask;
+            static bool shouldQueue = false;
+            if (names.size() == 0)
+            {
+                GetNamesOfComponents<T, Types...>(names);
+                mask = GetComponentMaskForComponents(names);
+                shouldQueue = ShouldComponentsBlockRenderThread<T, Types...>();
+            }
+
+            std::function<void(AEntity *)> lambdaWrapper = [lambda](AEntity *entity)
+            {
+                lambda(entity, entity->GetComponentOfType<T>(), entity->GetComponentOfType<Types>()...);
+            };
+
+            if (shouldQueue)
+            {
+                QueueSystem([this, lambdaWrapper, parallel]()
+                {
+                    ForEntitiesWithComponents(mask, lambdaWrapper, parallel);
+                });
+            }
+            else
+            {
+                ForEntitiesWithComponents(mask, lambdaWrapper, parallel);
+            }
+        }
+
+        template <typename FunType>
+        void ForEntitiesWithComponents(FunType lambda, bool parallel = false)
+        {
+            ForEntitiesWithComponents2(lambdaToFun(lambda), parallel);
+        }
+
 
 private:
         double _lastFrameTime = 0.0;

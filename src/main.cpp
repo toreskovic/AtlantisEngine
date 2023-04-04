@@ -33,6 +33,7 @@ typedef struct tagMSG *LPMSG; // All USER defines and routines
 #endif
 
 #include "helpers.h"
+#include "engine/profiling.h"
 #include "engine/scripting/luaRuntime.h"
 
 using namespace Atlantis;
@@ -96,6 +97,14 @@ void RegisterSystems()
     World.RegisterSystem([](AWorld *world)
                          { EndDrawing(); },
                          {"EndRender"}, {}, true);
+    
+    World.ProfilerMainThread = new SSimpleProfiler();
+    World.ProfilerRenderThread = new SSimpleProfiler();
+
+    World.ProfilerMainThread->IsRenderSystem = false;
+    World.RegisterSystem(World.ProfilerMainThread, {"EndRender"});
+    World.ProfilerRenderThread->IsRenderSystem = true;
+    World.RegisterSystem(World.ProfilerRenderThread, {"EndRender", "Render"});
 }
 
 void DoMain();
@@ -199,6 +208,7 @@ void DoMain()
     // De-Initialization
     RenderThread.join();
     LuaRuntime.UnloadLua();
+    World.Clear();
     //--------------------------------------------------------------------------------------
 
     if (LibPtr != nullptr)

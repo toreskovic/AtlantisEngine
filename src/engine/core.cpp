@@ -202,6 +202,11 @@ namespace Atlantis
         return _deltaTime;
     }
 
+    bool AWorld::IsMainThread() const
+    {
+        return std::this_thread::get_id() == MAIN_THREAD_ID;
+    }
+
     uint AWorld::GetRegistryVersion() const
     {
         return _registryVersion;
@@ -499,7 +504,7 @@ namespace Atlantis
             return ret;
         }
 
-        if (World->MAIN_THREAD_ID == std::this_thread::get_id())
+        if (World->IsMainThread())
         {
             World->QueueRenderThreadCall([this, path]()
                                          { Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str())))); });
