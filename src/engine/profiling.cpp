@@ -43,9 +43,9 @@ namespace Atlantis
         int textSize = MeasureText(fpsStr.c_str(), fontSize);
 
         // count entities that are alive
-        /*auto entities = world->GetEntitiesWithComponents<CPosition, CRenderable>();
+        auto& entities = world->GetObjectsByName("AEntity");
         int count = 0;
-        for (AEntity *e : entities)
+        for (auto& e : entities)
         {
             if (e->_isAlive)
             {
@@ -54,7 +54,7 @@ namespace Atlantis
         }
 
         auto entityStr = fmt::format("Entities: {}", count);
-        textSize = std::max(textSize, MeasureText(entityStr.c_str(), fontSize));*/
+        textSize = std::max(textSize, MeasureText(entityStr.c_str(), fontSize));
 
         Color bg = DARKGRAY;
         bg.a = 150;
@@ -110,7 +110,7 @@ namespace Atlantis
 
         DrawRectangle(0, offset_tmp + 40, textSize + 30, fontSize * 2 + 30, bg);
         DrawText(fpsStr.c_str(), 10, offset_tmp + 40 + 10, fontSize, LIGHTGRAY);
-        //DrawText(entityStr.c_str(), 10, 40 + 30, fontSize, LIGHTGRAY);
+        DrawText(entityStr.c_str(), 10, offset_tmp + 40 + 30, fontSize, LIGHTGRAY);
 
         _world->ProfilingMutex.unlock();
     }
