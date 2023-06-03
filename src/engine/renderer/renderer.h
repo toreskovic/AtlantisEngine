@@ -15,13 +15,13 @@ namespace Atlantis
         DEF_CLASS();
 
         DEF_PROPERTY();
-        float x;
+        float x = 0.0f;
         DEF_PROPERTY();
-        float y;
+        float y = 0.0f;
         DEF_PROPERTY();
-        float z;
+        float z = 0.0f;
 
-        CPosition() { _shouldBlockRenderThread = true; };
+        CPosition() : AComponent() { _shouldBlockRenderThread = true; };
         CPosition(const CPosition &other) { _shouldBlockRenderThread = true; };
     };
 
@@ -32,7 +32,7 @@ namespace Atlantis
         DEF_PROPERTY();
         AResourceHandle textureHandle;
 
-        CRenderable(){ _shouldBlockRenderThread = true; };
+        CRenderable() : AComponent() { _shouldBlockRenderThread = true; };
         CRenderable(const CRenderable &other){ _shouldBlockRenderThread = true; };
     };
 
@@ -41,15 +41,15 @@ namespace Atlantis
         DEF_CLASS();
 
         DEF_PROPERTY();
-        float x;
+        float x = 0.0f;
 
         DEF_PROPERTY();
-        float y;
+        float y = 0.0f;
 
         DEF_PROPERTY();
-        float z;
+        float z = 0.0f;
 
-        CVelocity(){};
+        CVelocity() : AComponent() {};
         CVelocity(const CVelocity &other){};
     };
 

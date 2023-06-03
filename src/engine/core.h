@@ -112,7 +112,7 @@ namespace Atlantis
 
     struct AComponent : public AObject
     {
-        AEntity *Owner;
+        AEntity *Owner = nullptr;
 
         bool _shouldBlockRenderThread = false;
 
