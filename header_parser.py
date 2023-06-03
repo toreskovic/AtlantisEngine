@@ -21,6 +21,8 @@ current_class_name = ""
 
 current_file = None
 
+current_string = ""
+
 
 def traverse_class_fields(node):
     if node.kind in [clang.cindex.CursorKind.FIELD_DECL, clang.cindex.CursorKind.CXX_METHOD]:
@@ -31,6 +33,7 @@ def traverse_class_fields(node):
 def class_decl(node):
     #print("    class", node.spelling)
     global current_class_name
+    global current_string
     current_class_name = node.spelling
 
     if len(current_macros) > 0 and current_macros[0]["type"] == "class":
@@ -50,8 +53,7 @@ def class_decl(node):
             if res:
                 fields_data.append(res)
         # print(fields_data)
-        current_file.write(
-            """#define __DEF_CLASS_HELPER_L_{line}() \\
+        current_string += """#define __DEF_CLASS_HELPER_L_{line}() \\
     static AClassData& GetClassDataStatic() \\
     {{ \\
         static AClassData classData; \\
@@ -78,7 +80,7 @@ def class_decl(node):
             \\
         {fields} \\
         return classData; \\
-    }}\n""".format(line=macro_line, class_name=node.spelling, fields=" \\\n\t\t".join(fields_data)))
+    }}\n""".format(line=macro_line, class_name=node.spelling, fields=" \\\n\t\t".join(fields_data))
     pass
 
 
@@ -116,6 +118,7 @@ kind_functions = {
 
 filename = sys.argv[1]
 current_filename = filename
+current_gen_filename = ""
 
 if len(sys.argv) > 2:
     working_dir = sys.argv[2]
@@ -162,7 +165,9 @@ def look_for_macros():
 def find_typerefs(node):
     # Recurse for children of this node
     global current_filename
+    global current_gen_filename
     global current_file
+    global current_string
     node_file = str(node.location.file)
     if current_filename.startswith("./src/") or node_file.startswith("./src/") or current_filename.startswith("./src\\") or node_file.startswith("./src\\"):
         if (node_file.startswith("./src/") or node_file.startswith("./src\\")) and node_file.endswith(".h") and not node_file.endswith(".gen.h"):
@@ -175,12 +180,20 @@ def find_typerefs(node):
                     os.makedirs(dir_name)
 
                 if current_file:
+                    # compare current_string with the contents of current_file
+                    if current_string != current_file.read():
+                        current_file.close()
+                        current_file = open(current_gen_filename, "w")
+                        current_file.write(current_string)
+                    else:
+                        print("No changes in file:", current_filename)
+                    
                     current_file.close()
 
                 current_gen_filename = os.path.dirname(
                     current_filename) + "/generated/" + os.path.basename(current_filename).removesuffix(".h") + ".gen.h"
-                current_file = open(current_gen_filename, "w")
-                current_file.write("")
+                current_file = open(current_gen_filename, "r")
+                current_string = ""
                 look_for_macros()
             if node.kind.is_declaration():
                 if node.kind == clang.cindex.CursorKind.CLASS_DECL or node.kind == clang.cindex.CursorKind.STRUCT_DECL:
@@ -208,4 +221,12 @@ find_typerefs(tu.cursor)
 # print(os.getcwd())
 
 if current_file:
+    # compare current_string with the contents of current_file
+    if current_string != current_file.read():
+        current_file.close()
+        current_file = open(current_gen_filename, "w")
+        current_file.write(current_string)
+        current_string = ""
+    else:
+        print("No changes in file:", current_filename)
     current_file.close()
