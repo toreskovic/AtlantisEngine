@@ -126,7 +126,7 @@ namespace Atlantis
         Components.push_back(component);
 
         ComponentNames.push_back(component->GetClassData().Name);
-        std::sort(ComponentNames.begin(), ComponentNames.end());
+        //std::sort(ComponentNames.begin(), ComponentNames.end());
 
         _componentMask = World->GetComponentMaskForComponents(ComponentNames);
 
