@@ -57,11 +57,8 @@ extern "C"
 
         auto bunnySystem = [](AWorld *world)
         {
-            world->ForEntitiesWithComponents<CPosition, CVelocity>([world](AEntity *e)
+            world->ForEntitiesWithComponents([world](AEntity *e, CPosition* pos, CVelocity* vel)
                                                                    {
-                CVelocity *vel = e->GetComponentOfType<CVelocity>();
-                CPosition *pos = e->GetComponentOfType<CPosition>();
-
                 pos->x += vel->x * world->GetDeltaTime();
                 pos->y += vel->y * world->GetDeltaTime();
 
@@ -147,7 +144,7 @@ extern "C"
             DrawRectangle(0, 0, textSize + 30, fontSize * 2 + 30, bg);
             DrawText(fpsStr.c_str(), 10, 10, fontSize, LIGHTGRAY);
             DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY); },
-                              {"DebugInfo"}, {"EndRender"});
+                              {"DebugInfo"}, {"EndRender"}, true);
 
         World->RegisterSystem([](AWorld *world)
                               {
@@ -215,6 +212,10 @@ extern "C"
     LIB_EXPORT void PostHotReload()
     {
         RegisterSystems();
+    }
+
+    LIB_EXPORT void RegisterTypes()
+    {
     }
 
 } // extern "C"
