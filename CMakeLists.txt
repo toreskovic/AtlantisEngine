@@ -119,39 +119,39 @@ if (APPLE)
     target_link_libraries(${PROJECT_NAME} "-framework OpenGL")
 endif()
 
+# find all projects
+file( GLOB GAME_PROJECTS LIST_DIRECTORIES true RELATIVE ${PROJECT_SOURCE_DIR}/projects/ projects/*)
+message("found projects:")
+foreach( atlantis_project_name ${GAME_PROJECTS} )
+    message("${atlantis_project_name}")
+endforeach( atlantis_project_name ${GAME_PROJECTS} )
 
+# create custom commands for parsing headers
+set(custom_commands)
+foreach( atlantis_project_name ${GAME_PROJECTS} )
+    list(APPEND custom_commands
+        COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/${atlantis_project_name}
+    )
+endforeach( atlantis_project_name ${GAME_PROJECTS} )
+
+# parse headers for all projects
 add_custom_target(ParseHeaders
     COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/main.cpp ${PROJECT_SOURCE_DIR}
-    COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/AtlantisGame
-    COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/AtlantisBunnyMark
-    COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/AtlantisBunnyMarkLua
-)
-
-add_custom_target(CreateProjectFileGame
-    COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py AtlantisGame
-)
-
-add_custom_target(CreateProjectFileBunnyMark
-    COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py AtlantisBunnyMark
-)
-
-add_custom_target(CreateProjectFileBunnyMarkLua
-    COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py AtlantisBunnyMarkLua
+    ${custom_commands}
 )
 
 add_dependencies(AtlantisEngine ParseHeaders)
 
-add_subdirectory("projects/AtlantisGame")
-add_dependencies(AtlantisGame AtlantisEngine)
-add_dependencies(AtlantisGame CreateProjectFileGame)
+# add all projects
+foreach( atlantis_project_name ${GAME_PROJECTS} )
+    add_custom_target(CreateProjectFile${atlantis_project_name}
+        COMMAND python ${PROJECT_SOURCE_DIR}/set_active_project.py ${atlantis_project_name}
+    )
 
-add_subdirectory("projects/AtlantisBunnyMark")
-add_dependencies(AtlantisBunnyMark AtlantisEngine)
-add_dependencies(AtlantisBunnyMark CreateProjectFileBunnyMark)
-
-add_subdirectory("projects/AtlantisBunnyMarkLua")
-add_dependencies(AtlantisBunnyMarkLua AtlantisEngine)
-add_dependencies(AtlantisBunnyMarkLua CreateProjectFileBunnyMarkLua)
+    add_subdirectory("projects/${atlantis_project_name}")
+    add_dependencies(${atlantis_project_name} AtlantisEngine)
+    add_dependencies(${atlantis_project_name} CreateProjectFile${atlantis_project_name})
+endforeach( atlantis_project_name ${GAME_PROJECTS} )
 
 ##target_compile_options(AtlantisBunnyMark PUBLIC -fPIC -rdynamic)
 
