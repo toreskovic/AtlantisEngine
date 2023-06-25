@@ -176,12 +176,17 @@ namespace Atlantis
         ObjectModifyQueue.push_back(lambda);
     }
 
-    void AWorld::QueueModifyObject(AObject *object, std::function<void(AObject *)> lambda)
+    void Atlantis::AWorld::QueueModifyObject(
+        AObjPtr<AObject> object,
+        std::function<void(AObject*)> lambda)
     {
-        ObjectModifyQueue.push_back([object, lambda, this]()
-                                    { 
-                        lambda(object);
-                        _registryVersion++; });
+        ObjectModifyQueue.push_back(
+            [object, lambda, this]()
+            {
+                AObject* obj = object.Get();
+                lambda(obj);
+                _registryVersion++;
+            });
     }
 
     void AWorld::MarkObjectDead(AObject *object)
@@ -191,7 +196,7 @@ namespace Atlantis
         _registryVersion++;
     }
 
-    void AWorld::QueueObjectDeletion(AObject *object)
+    void AWorld::QueueObjectDeletion(AObjPtr<AObject> object)
     {
         ObjectDestroyQueue.push_back(object);
     }
@@ -269,6 +274,26 @@ namespace Atlantis
         RegisterSystem(system, beforeLabels);
     }
 
+    void AWorld::RegisterSystemRenderThread(
+        std::function<void(AWorld*)> lambda,
+        const std::vector<AName>& labels,
+        const std::vector<AName>& beforeLabels)
+    {
+        RegisterSystem(lambda, labels, beforeLabels, true);
+    }
+
+    void AWorld::RegisterSystemTimesliced(int objectsPerFrame, std::function<void(AWorld *, ASystem *)> lambda, const std::vector<AName> &labels, const std::vector<AName> &beforeLabels, bool renderThread /* false */)
+    {
+        ALambdaSystemTimesliced *system = new ALambdaSystemTimesliced();
+        system->LambdaTimesliced = lambda;
+        system->Labels = {labels.begin(), labels.end()};
+        system->IsRenderSystem = renderThread;
+        system->IsTimesliced = true;
+        system->ObjectsPerFrame = objectsPerFrame;
+
+        RegisterSystem(system, beforeLabels);
+    }
+
     void AWorld::ProcessSystems()
     {
         _frame++;
@@ -342,7 +367,7 @@ namespace Atlantis
         // Process object deletion queue
         for (auto &obj : ObjectDestroyQueue)
         {
-            if (obj->_isAlive)
+            if (obj.IsValid())
             {
                 obj->MarkObjectDead();
             }
@@ -396,15 +421,34 @@ namespace Atlantis
         return intersection;
     }
 
-    void AWorld::ForEntitiesWithComponents(const ComponentBitset &componentMask, std::function<void(AEntity *)> lambda, bool parallel)
+    void AWorld::ForEntitiesWithComponents(const ComponentBitset &componentMask, std::function<void(AEntity *)> lambda, bool parallel, ASystem* system)
     {
         const auto &entities = GetObjectsByName("AEntity");
+
+        int start = 0;
+        int end = entities.size();
+
+        if (system != nullptr && system->IsTimesliced)
+        {
+            start = system->CurrentObjectIndex;
+            end = start + system->ObjectsPerFrame;
+
+            if (end > entities.size())
+            {
+                end = entities.size();
+                system->CurrentObjectIndex = 0;
+            }
+            else
+            {
+                system->CurrentObjectIndex = end;
+            }
+        }
 
         if (parallel)
         {
 // MSVC currently supports only OpenMP 2.0, which doesn't like range-based for loops :(
 #pragma omp parallel for
-            for (int i = 0; i < entities.size(); i++)
+            for (int i = start; i < end; i++)
             {
                 AEntity *entity = static_cast<AEntity *>(entities[i].get());
 
@@ -416,9 +460,9 @@ namespace Atlantis
         }
         else
         {
-            for (auto &entityObj : entities)
+            for (int i = start; i < end; i++)
             {
-                AEntity *entity = static_cast<AEntity *>(entityObj.get());
+                AEntity *entity = static_cast<AEntity *>(entities[i].get());
 
                 if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
                 {

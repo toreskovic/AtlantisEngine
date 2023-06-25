@@ -15,21 +15,35 @@ namespace Atlantis
 
     bool IsRenderSystem = false;
 
+    // timeslicing stuff
+    bool IsTimesliced = false;
+
+    int ObjectsPerFrame = 1000;
+
+    int CurrentObjectIndex = 0;
+
     virtual void Process(AWorld *world);
   };
 
   struct ALambdaSystem : public ASystem
   {
-    std::function<void(AWorld *)> Lambda;
+    std::function<void(AWorld*)> Lambda;
 
-    virtual void Process(AWorld *world) override;
+    virtual void Process(AWorld* world) override;
+  };
+
+  struct ALambdaSystemTimesliced : public ASystem
+  {
+    std::function<void(AWorld*, ASystem*)> LambdaTimesliced;
+
+    virtual void Process(AWorld* world) override;
   };
 
   struct ASyncSystem : public ASystem
   {
-    virtual void Process(AWorld *world) override;
+    virtual void Process(AWorld* world) override;
   };
 
-} // namespace Atlantis
+  }      // namespace Atlantis
 
 #endif // !SYSTEM_H

@@ -12,6 +12,11 @@ namespace Atlantis
     Lambda(world);
   }
 
+  void ALambdaSystemTimesliced::Process(AWorld* world)
+  {
+    LambdaTimesliced(world, this);
+  }
+
   void ASyncSystem::Process(AWorld *world)
   {
     world->SyncEntities();

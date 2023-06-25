@@ -32,6 +32,21 @@ namespace Atlantis
         DEF_PROPERTY();
         AResourceHandle textureHandle;
 
+        DEF_PROPERTY();
+        int spriteWidth = 0;
+
+        DEF_PROPERTY();
+        int spriteHeight = 0;
+
+        DEF_PROPERTY();
+        int spriteX = 0;
+
+        DEF_PROPERTY();
+        int spriteY = 0;
+
+        DEF_PROPERTY();
+        int cellSize = 64;
+
         CRenderable() : AComponent() { _shouldBlockRenderThread = true; };
         CRenderable(const CRenderable &other){ _shouldBlockRenderThread = true; };
     };

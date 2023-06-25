@@ -63,14 +63,28 @@ namespace Atlantis
             auto y = (pos->y - halfHeight) * Zoom + halfHeight - camY * Zoom;
 
             // don't draw if outside of screen
-            if (x + 64 * Zoom < 0 || x > width || y + 64 * Zoom < 0 || y > height)
+            if (x + ren->cellSize * Zoom < 0 || x > width || y + ren->cellSize * Zoom < 0 || y > height)
             {
                 continue;
             }
 
             ATextureResource *tex = ren->textureHandle.get<ATextureResource>();
             if (tex != nullptr)
-                DrawTextureEx(tex->Texture, {x, y}, 0.0f, Zoom, col->col);
+            {
+                if (ren->spriteHeight != 0 && ren->spriteWidth != 0)
+                {
+                    Rectangle source;
+                    source.x = ren->spriteX * ren->spriteWidth;
+                    source.y = ren->spriteY * ren->spriteHeight;
+                    source.width = ren->spriteWidth;
+                    source.height = ren->spriteHeight;
+                    DrawTexturePro(tex->Texture, source, {x, y, ren->spriteWidth * Zoom, ren->spriteHeight * Zoom}, {0, 0}, 0.0f, col->col);
+                }
+                else
+                {
+                    DrawTextureEx(tex->Texture, {x, y}, 0.0f, Zoom, col->col);
+                }
+            }
         }
 
         /*world->ForEntitiesWithComponents(componentMask, [&](AEntity *e)

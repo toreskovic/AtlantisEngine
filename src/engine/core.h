@@ -264,14 +264,15 @@ namespace Atlantis
                 _isAssigned = true;
                 _world = ptr->World;
                 _uid = ptr->_uid;
+                _typeName = ptr->GetClassData().Name;
             }
         }
 
-        bool IsValid();
+        bool IsValid() const;
 
-        T *Get(bool validate = true);
+        T *Get(bool validate = true) const;
 
-        T *Get(const AName &name, bool validate = true);
+        T *Get(const AName &name, bool validate = true) const;
 
         T *operator->()
         {
@@ -289,6 +290,9 @@ namespace Atlantis
 
         // we can only check for ptr validity once assigned
         bool _isAssigned = false;
+
+        // cache object type name for validation
+        AName _typeName;
 
         // cache world from object after assigning
         AWorld *_world = nullptr;
@@ -325,7 +329,7 @@ namespace Atlantis
 
         std::vector<std::function<void()>> ObjectCreateCommandsQueue;
         std::vector<std::function<void()>> ObjectModifyQueue;
-        std::vector<AObject*> ObjectDestroyQueue;
+        std::vector<AObjPtr<AObject>> ObjectDestroyQueue;
 
         std::vector<AName> ComponentNames;
 
@@ -528,11 +532,11 @@ namespace Atlantis
 
         void QueueSystem(std::function<void()> lambda);
 
-        void QueueModifyObject(AObject *object, std::function<void(AObject *)> lambda);
+        void QueueModifyObject(AObjPtr<AObject> object, std::function<void(AObject *)> lambda);
 
         void MarkObjectDead(AObject *object);
 
-        void QueueObjectDeletion(AObject *object);
+        void QueueObjectDeletion(AObjPtr<AObject> object);
 
         float GetDeltaTime() const;
 
@@ -551,6 +555,10 @@ namespace Atlantis
         void RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels = {});
 
         void RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels = {}, const std::vector<AName> &beforeLabels = {}, bool renderThread = false);
+
+        void RegisterSystemRenderThread(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels = {}, const std::vector<AName> &beforeLabels = {});
+
+        void RegisterSystemTimesliced(int objectsPerFrame, std::function<void(AWorld*, ASystem *)> lambda, const std::vector<AName>& labels, const std::vector<AName>& beforeLabels, bool renderThread = false);
 
         template <typename T>
         T* GetSystem(const AName &name)
@@ -599,7 +607,7 @@ namespace Atlantis
 
         const std::vector<AEntity *> GetEntitiesWithComponents(const ComponentBitset &componentsNames);
 
-        void ForEntitiesWithComponents(const ComponentBitset &componentMask, std::function<void(AEntity *)> lambda, bool parallel = false);
+        void ForEntitiesWithComponents(const ComponentBitset &componentMask, std::function<void(AEntity *)> lambda, bool parallel = false, ASystem* system = nullptr);
 
         ComponentBitset GetComponentMaskForComponents(std::vector<AName> componentsNames);
 
@@ -729,7 +737,7 @@ namespace Atlantis
         }
 
         template <typename T, typename... Types>
-        void ForEntitiesWithComponents2(std::function<void(AEntity*, T*, Types*...)> lambda, bool parallel = false)
+        void ForEntitiesWithComponents2(std::function<void(AEntity*, T*, Types*...)> lambda, bool parallel = false, ASystem* system = nullptr)
         {
             static std::vector<AName> names;
             static ComponentBitset mask;
@@ -748,14 +756,14 @@ namespace Atlantis
 
             if (shouldQueue)
             {
-                QueueSystem([this, lambdaWrapper, parallel]()
+                QueueSystem([this, lambdaWrapper, parallel, system]()
                 {
-                    ForEntitiesWithComponents(mask, lambdaWrapper, parallel);
+                    ForEntitiesWithComponents(mask, lambdaWrapper, parallel, system);
                 });
             }
             else
             {
-                ForEntitiesWithComponents(mask, lambdaWrapper, parallel);
+                ForEntitiesWithComponents(mask, lambdaWrapper, parallel, system);
             }
         }
 
@@ -765,6 +773,17 @@ namespace Atlantis
             ForEntitiesWithComponents2(lambdaToFun(lambda), parallel);
         }
 
+        template <typename FunType>
+        void ForEntitiesWithComponentsParallel(FunType lambda)
+        {
+            ForEntitiesWithComponents2(lambdaToFun(lambda), true);
+        }
+
+        template <typename FunType>
+        void ForEntitiesWithComponents(ASystem* system, FunType lambda, bool parallel = false)
+        {
+            ForEntitiesWithComponents2(lambdaToFun(lambda), parallel, system);
+        }
 
 private:
         double _lastFrameTime = 0.0;
@@ -777,19 +796,24 @@ private:
     };
 
     template <typename T>
-    inline bool AObjPtr<T>::IsValid()
+    inline bool AObjPtr<T>::IsValid() const
     {
         if (!_isAssigned)
         {
             return false;
         }
 
-        T *obj = static_cast<T *>(_world->GetObjectsByName(T::GetClassDataStatic().Name)[_uid].get());
+        if (_typeName == AName::None())
+        {
+            return false;
+        }
+
+        T *obj = static_cast<T *>(_world->GetObjectsByName(_typeName)[_uid].get());
         return obj->_isAlive;
     }
 
     template <typename T>
-    inline T *AObjPtr<T>::Get(bool validate)
+    inline T *AObjPtr<T>::Get(bool validate) const
     {
         if (validate)
         {
@@ -799,11 +823,16 @@ private:
             }
         }
 
-        return static_cast<T *>(_world->GetObjectsByName(T::GetClassDataStatic().Name)[_uid].get());
+        if (_typeName == AName::None())
+        {
+            return nullptr;
+        }
+
+        return static_cast<T *>(_world->GetObjectsByName(_typeName)[_uid].get());
     }
 
     template <typename T>
-    inline T *AObjPtr<T>::Get(const AName &name, bool validate)
+    inline T *AObjPtr<T>::Get(const AName &name, bool validate) const
     {
         if (validate)
         {
