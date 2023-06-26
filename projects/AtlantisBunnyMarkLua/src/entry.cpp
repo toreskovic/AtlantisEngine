@@ -34,7 +34,7 @@ extern "C" {
         _renderer->Labels.insert("Render");
         World->RegisterSystem(_renderer, {"EndRender"});
 
-        World->RegisterSystem([](AWorld *world)
+        World->RegisterSystemRenderThread([](AWorld *world)
                                     {
             static auto timer = Timer(1000);
             static float fpsAggregator = 0.0f;
@@ -92,6 +92,10 @@ extern "C" {
     }
 
     LIB_EXPORT void PostHotReload()
+    {
+    }
+
+    LIB_EXPORT void RegisterTypes()
     {
     }
 
