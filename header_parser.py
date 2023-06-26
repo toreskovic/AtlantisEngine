@@ -192,6 +192,13 @@ def find_typerefs(node):
 
                 current_gen_filename = os.path.dirname(
                     current_filename) + "/generated/" + os.path.basename(current_filename).removesuffix(".h") + ".gen.h"
+
+                # check if file exists
+                if not os.path.exists(current_gen_filename):
+                    current_file = open(current_gen_filename, "w")
+                    current_file.write("")
+                    current_file.close()
+
                 current_file = open(current_gen_filename, "r")
                 current_string = ""
                 look_for_macros()

@@ -1,15 +1,19 @@
 #include "timer.h"
+#include "raylib.h"
 
 std::function<bool()> Timer(int time)
 {
-    auto created = std::chrono::high_resolution_clock::now();
-    // "=" allow to pass by copy all used variables (created and period)
-    // "&f" allow to pass by reference f variable
-    std::function<bool()> fn = [=](){
-        auto now = std::chrono::high_resolution_clock::now();
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - created).count() > time){
+    double currentTime = GetTime() * 1000.0f;
+
+    std::function<bool()> fn = [time, currentTime]()
+    {
+        double now = GetTime() * 1000.0f;
+
+        if (now - currentTime > time)
+        {
             return true;
         }
+
         return false;
     };
     return fn;

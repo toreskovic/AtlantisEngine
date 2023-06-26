@@ -16,7 +16,6 @@ typedef struct tagMSG *LPMSG; // All USER defines and routines
 #endif
 
 #include "dylib.hpp"
-#include "third-party/FileWatch.h"
 #include "timer.h"
 #include "engine/core.h"
 #include "engine/renderer/renderer.h"
@@ -175,12 +174,6 @@ void DoMain()
 
     InitDylibTest();
     std::cout << FinalLibName << std::endl;
-    filewatch::FileWatch<std::string> watch(
-        FinalLibName,
-        [](const std::string &path, const filewatch::Event change_type)
-        {
-            HotReloadTimer = Timer(500);
-        });
 
     LuaRuntime.InitLua();
     LuaRuntime.SetWorld(&World);
@@ -192,8 +185,23 @@ void DoMain()
 
     // Main game loop
     //--------------------------------------------------------------------------------------
+    std::function<bool ()> fileCheckTimer = Timer(500);
+    long lastModTime = GetFileModTime(FinalLibName.c_str());
+
     while (ExitSignal == false)
     {
+        if (fileCheckTimer())
+        {
+            long modTime = GetFileModTime(FinalLibName.c_str());
+            if (modTime != lastModTime)
+            {
+                HotReloadTimer = Timer(500);
+                lastModTime = modTime;
+            }
+
+            fileCheckTimer = Timer(500);
+        }
+
         if (HotReloadTimer())
         {
             World.RenderThreadMutex.lock();
