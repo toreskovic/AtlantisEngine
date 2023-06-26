@@ -154,7 +154,7 @@ namespace Atlantis
 
         virtual void MarkObjectDead() override;
 
-        AComponent *GetComponentOfType(const AName &name)
+        AComponent *GetComponentOfType(const AName &name) const
         {
             for (auto *comp : Components)
             {
@@ -168,7 +168,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        T *GetComponentOfType()
+        T *GetComponentOfType() const
         {
             static const AName &name = T::GetClassDataStatic().Name;
 
@@ -268,15 +268,36 @@ namespace Atlantis
             }
         }
 
+        AObjPtr(const AObjPtr<T> &other)
+        {
+            _uid = other._uid;
+            _typeName = other._typeName;
+            _isAssigned = other._isAssigned;
+            _world = other._world;
+        }
+
         bool IsValid() const;
 
         T *Get(bool validate = true) const;
 
         T *Get(const AName &name, bool validate = true) const;
 
-        T *operator->()
+        T *operator->() const
         {
             return Get();
+        }
+
+        bool operator ==(const AObjPtr<T> &other) const
+        {
+            return _uid == other._uid && _typeName == other._typeName;
+        }
+
+        void operator =(const AObjPtr<T> &other)
+        {
+            _uid = other._uid;
+            _typeName = other._typeName;
+            _isAssigned = other._isAssigned;
+            _world = other._world;
         }
 
         void Clear()

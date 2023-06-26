@@ -52,10 +52,22 @@ namespace Atlantis
             Hash = std::hash<std::string>{}(name);
         }
 
+        AName(const AName &other)
+        {
+            Name = { other.Name.begin(), other.Name.end() };
+            Hash = other.Hash;
+        }
+
         std::string GetName() const
         {
             std::string n = { Name.begin(), Name.end() - 1 };
             return n;
+        }
+
+        void operator=(const AName &other)
+        {
+            Name = { other.Name.begin(), other.Name.end() };
+            Hash = other.Hash;
         }
 
         bool operator==(const char *name) const

@@ -245,7 +245,7 @@ namespace Atlantis
             sol::usertype<AWorld> world_type = Lua.new_usertype<AWorld>("AWorld");
             //world_type["GetEntitiesWithComponents"] = getEntitiesWithComponents;
 
-            AComponent *(AEntity::*getComponentOfType)(const AName &name) = &AEntity::GetComponentOfType;
+            AComponent *(AEntity::*getComponentOfType)(const AName &name) const = &AEntity::GetComponentOfType;
             sol::usertype<AEntity> entity_type = Lua.new_usertype<AEntity>("AEntity");
             entity_type["AddComponent"] = &AEntity::AddComponent;
             entity_type["GetComponentOfType"] = getComponentOfType;
