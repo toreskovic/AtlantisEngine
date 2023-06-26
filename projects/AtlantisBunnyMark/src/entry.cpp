@@ -58,7 +58,7 @@ extern "C"
 
         auto bunnySystem = [](AWorld* world)
         {
-            world->ForEntitiesWithComponents(
+            world->ForEntitiesWithComponentsParallel(
                 [world](AEntity* e, CPosition* pos, CVelocity* vel)
                 {
                     pos->x += vel->x * world->GetDeltaTime();
@@ -74,15 +74,14 @@ extern "C"
                     {
                         vel->y *= -1;
                     }
-                },
-                true);
+                });
         };
 
         World->RegisterSystem(bunnySystem, { "Physics" }, { "BeginRender" });
 
         static float fps = 0.0f;
 
-        World->RegisterSystem(
+        World->RegisterSystemRenderThread(
             [](AWorld* world)
             {
                 static auto timer = Timer(100);
@@ -129,8 +128,7 @@ extern "C"
                 DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY);
             },
             { "DebugInfo" },
-            { "EndRender" },
-            true);
+            { "EndRender" });
 
         World->RegisterSystem(
             [](AWorld* world)
