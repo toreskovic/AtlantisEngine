@@ -19,54 +19,57 @@ namespace Atlantis
 
     struct AName
     {
-        std::vector<char> Name;
-
         size_t Hash = 0;
 
         AName()
         {
         }
 
+        std::string GetOrAddName(size_t hash, std::string name = "") const
+        {
+            static std::unordered_map<size_t, std::string> NameMap;
+            static std::string emptyString = "";
+
+            auto it = NameMap.find(Hash);
+
+            if (it == NameMap.end())
+            {
+                if (name.empty())
+                {
+                    return emptyString;
+                }
+
+                NameMap[hash] = name;
+            }
+            
+            return NameMap[hash];
+        }
+
         AName(std::string name)
         {
-            Name = { name.begin(), name.end() };
-
-            if (Name[Name.size() - 1] != 0)
-            {
-                Name.push_back(0);
-            }
-
             Hash = std::hash<std::string>{}(name);
+            GetOrAddName(Hash, name);
         }
 
         AName(const char *name)
         {
             std::string n = name;
-            Name = { n.begin(), n.end() };
-
-            if (Name[Name.size() - 1] != 0)
-            {
-                Name.push_back(0);
-            }
-
             Hash = std::hash<std::string>{}(name);
+            GetOrAddName(Hash, n);
         }
 
         AName(const AName &other)
         {
-            Name = { other.Name.begin(), other.Name.end() };
             Hash = other.Hash;
         }
 
         std::string GetName() const
         {
-            std::string n = { Name.begin(), Name.end() - 1 };
-            return n;
+            return GetOrAddName(Hash);
         }
 
         void operator=(const AName &other)
         {
-            Name = { other.Name.begin(), other.Name.end() };
             Hash = other.Hash;
         }
 
@@ -88,13 +91,11 @@ namespace Atlantis
 
         friend std::ostream &operator<<(std::ostream &os, const AName &name)
         {
-            std::string n = { name.Name.begin(), name.Name.end() };
-            return std::operator<<(os, n);
+            return std::operator<<(os, name.GetOrAddName(name.Hash));
         }
 
         bool IsValid()
         {
-            // return Hash > 0 && !Name.empty();
             return Hash > 0;
         }
 

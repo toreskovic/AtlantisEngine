@@ -395,6 +395,11 @@ namespace Atlantis
         return objList;
     }
 
+    const void* AWorld::GetObjectsByNameRaw(const AName& objectName)
+    {
+        return (void*)AllocatorHelpers[objectName].Start;
+    }
+
     size_t AWorld::GetObjectCountByType(const AName &objectName)
     {
         return GetObjectsByName(objectName).size();
@@ -402,13 +407,18 @@ namespace Atlantis
 
     const std::vector<AEntity *> AWorld::GetEntitiesWithComponents(const ComponentBitset &componentMask)
     {
-        std::vector<AEntity *> intersection;
-        const auto &entities = GetObjectsByName("AEntity");
-        intersection.reserve(entities.size());
+        static const AName entityName = "AEntity";
 
-        for (auto &entityObj : entities)
+        std::vector<AEntity *> intersection;
+        
+        const AEntity* entities = (const AEntity*)GetObjectsByNameRaw(entityName);
+        const size_t entityCount = GetObjectCountByType(entityName);
+        
+        intersection.reserve(entityCount);
+
+        for (int i = 0; i < entityCount; i++)
         {
-            AEntity *entity = static_cast<AEntity *>(entityObj.get());
+            AEntity *entity = const_cast<AEntity *>(&entities[i]);
 
             bool isValid = entity->_isAlive && entity->HasComponentsByMask(componentMask);
 
@@ -423,19 +433,21 @@ namespace Atlantis
 
     void AWorld::ForEntitiesWithComponents(const ComponentBitset &componentMask, std::function<void(AEntity *)> lambda, bool parallel, ASystem* system)
     {
-        const auto &entities = GetObjectsByName("AEntity");
+        static const AName entityName = "AEntity";
+        const AEntity* entities = (const AEntity*)GetObjectsByNameRaw(entityName);
+        const size_t entityCount = GetObjectCountByType(entityName);
 
         int start = 0;
-        int end = entities.size();
+        int end = entityCount;
 
         if (system != nullptr && system->IsTimesliced)
         {
             start = system->CurrentObjectIndex;
             end = start + system->ObjectsPerFrame;
 
-            if (end > entities.size())
+            if (end > entityCount)
             {
-                end = entities.size();
+                end = entityCount;
                 system->CurrentObjectIndex = 0;
             }
             else
@@ -450,7 +462,7 @@ namespace Atlantis
 #pragma omp parallel for
             for (int i = start; i < end; i++)
             {
-                AEntity *entity = static_cast<AEntity *>(entities[i].get());
+                AEntity *entity = const_cast<AEntity *>(&entities[i]);
 
                 if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
                 {
@@ -462,7 +474,7 @@ namespace Atlantis
         {
             for (int i = start; i < end; i++)
             {
-                AEntity *entity = static_cast<AEntity *>(entities[i].get());
+                AEntity *entity = const_cast<AEntity *>(&entities[i]);
 
                 if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
                 {

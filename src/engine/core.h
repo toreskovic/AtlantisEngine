@@ -156,11 +156,11 @@ namespace Atlantis
 
         AComponent *GetComponentOfType(const AName &name) const
         {
-            for (auto *comp : Components)
+            for (int i = 0; i < ComponentNames.size(); i++)
             {
-                if (comp->GetClassData().Name == name)
+                if (ComponentNames[i] == name)
                 {
-                    return comp;
+                    return Components[i];
                 }
             }
 
@@ -625,6 +625,8 @@ namespace Atlantis
         void SyncEntities();
 
         const std::vector<std::unique_ptr<AObject, no_deleter>> &GetObjectsByName(const AName &objectName);
+
+        const void* GetObjectsByNameRaw(const AName &objectName);
 
         const std::vector<AEntity *> GetEntitiesWithComponents(const ComponentBitset &componentsNames);
 
