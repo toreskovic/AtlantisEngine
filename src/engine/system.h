@@ -11,7 +11,7 @@ namespace Atlantis
 
   struct ASystem
   {
-    std::unordered_set<AName, ANameHashFunction> Labels;
+    std::unordered_set<AName> Labels;
 
     bool IsRenderSystem = false;
 

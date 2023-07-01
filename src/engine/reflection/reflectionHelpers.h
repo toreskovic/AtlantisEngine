@@ -105,15 +105,6 @@ namespace Atlantis
         }
     };
 
-    class ANameHashFunction
-    {
-    public:
-        size_t operator()(const AName &p) const
-        {
-            return p.Hash;
-        }
-    };
-
     struct AResource
     {
         virtual ~AResource(){};
@@ -211,8 +202,13 @@ namespace Atlantis
     };
 }
 
-NLOHMANN_JSON_NAMESPACE_BEGIN
-template <>
+template<>
+struct std::hash<Atlantis::AName>
+{
+    size_t operator()(const Atlantis::AName& p) const { return p.Hash; }
+};
+
+NLOHMANN_JSON_NAMESPACE_BEGIN template<>
 struct adl_serializer<Atlantis::AName>
 {
     static void to_json(json &j, const Atlantis::AName &name)
