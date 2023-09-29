@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.11) # FetchContent is available in 3.11+
+
 project(AtlantisEngine)
 
 set(CMAKE_C_STANDARD 17)
@@ -131,6 +132,7 @@ set(custom_commands)
 foreach( atlantis_project_name ${GAME_PROJECTS} )
     list(APPEND custom_commands
         COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/entry.cpp ${PROJECT_SOURCE_DIR}/projects/${atlantis_project_name}
+        COMMAND python ${PROJECT_SOURCE_DIR}/header_parser.py ./src/game.cpp ${PROJECT_SOURCE_DIR}/projects/${atlantis_project_name}
     )
 endforeach( atlantis_project_name ${GAME_PROJECTS} )
 
