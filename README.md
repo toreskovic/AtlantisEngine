@@ -4,6 +4,8 @@
 Atlantis Engine is a small toy engine personal project of mine. Consider everything experimental.
 Currently there's two demos / simple benchmarks, `AtlantisBunnyMark` and `AtlantisBunnyMarkLua`
 
+`dev` branch is the one to look for if you want to be completely up-to-date but with possibly broken things (especially on Windows). Periodic merges to the master branch happen as things become more stable.
+
 ## Main features currently existing in some fashion:
 - Custom ECS implementation (supporting multithreading & timeslicing)
 - Code hot-reloading
@@ -33,12 +35,11 @@ cmake --build build --target AtlantisBunnyMark
 ### Windows
 
 ```
-git checkout Windows
 cmake -B build -D CMAKE_BUILD_TYPE=Release
 python set_active_project.py AtlantisBunnyMark
 ```
 
-You should now see your .sln and .vcxproj files inside the build directory.
+You should now see your .sln and .vcxproj files inside the build folder.
 
 You can build the AtlantisBunnyMark project now.
 
@@ -52,5 +53,8 @@ cd build
 ```
 
 ### Windows
-
-You know what to do
+```
+Open up the build folder
+You can find AtlantisEngine.exe in a subfolder corresponding to your configuration (Debug/Release/RelWithDebInfo)
+```
+#### NOTE: Code hot-reloading currently doesn't work on Windows while debugging

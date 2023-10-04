@@ -13,10 +13,19 @@
     }
 
 #define DESERIALIZE_PROP_HELPER(type)                                            \
-    if (prop["Type"].get<std::string>() == #type)                                \
+    if (prop["Type"].get<std::string>() == #type)							     \
     {                                                                            \
         SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<type>()); \
     }
+
+// On Linux, Atlantis types in reflection data are namespaced in the form of "Atlantis::type", while on Windows, they appear as just "type"
+#if defined(_WIN32)
+#define SERIALIZE_PROP_HELPER_ATLANTIS(type) SERIALIZE_PROP_HELPER(type)
+#define DESERIALIZE_PROP_HELPER_ATLANTIS(type) DESERIALIZE_PROP_HELPER(type)
+#else
+#define SERIALIZE_PROP_HELPER_ATLANTIS(type) SERIALIZE_PROP_HELPER(Atlantis::type)
+#define DESERIALIZE_PROP_HELPER_ATLANTIS(type) DESERIALIZE_PROP_HELPER(Atlantis::type)
+#endif
 
 namespace Atlantis
 {
@@ -65,8 +74,8 @@ namespace Atlantis
             SERIALIZE_PROP_HELPER(Color);
             SERIALIZE_PROP_HELPER(Texture2D);
             SERIALIZE_PROP_HELPER(std::string);
-            SERIALIZE_PROP_HELPER(Atlantis::AName);
-            SERIALIZE_PROP_HELPER(Atlantis::AResourceHandle);
+            SERIALIZE_PROP_HELPER_ATLANTIS(AName);
+            SERIALIZE_PROP_HELPER_ATLANTIS(AResourceHandle);
 
             json["Properties"].push_back(propJson);
         }
@@ -78,9 +87,16 @@ namespace Atlantis
     {
         for (auto &prop : json["Properties"])
         {
-            if (prop["IsDefault"])
+            if (prop.contains("IsDefault"))
             {
-                continue;
+                if (prop["IsDefault"])
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                std::cout << "AObject::Deserialize | Warning: Property " << prop["Name"].get<std::string>() << " has no IsDefault field" << std::endl;
             }
 
             DESERIALIZE_PROP_HELPER(bool);
@@ -90,8 +106,8 @@ namespace Atlantis
             DESERIALIZE_PROP_HELPER(Color);
             DESERIALIZE_PROP_HELPER(Texture2D);
             DESERIALIZE_PROP_HELPER(std::string);
-            DESERIALIZE_PROP_HELPER(Atlantis::AName);
-            DESERIALIZE_PROP_HELPER(Atlantis::AResourceHandle);
+            DESERIALIZE_PROP_HELPER_ATLANTIS(AName);
+            DESERIALIZE_PROP_HELPER_ATLANTIS(AResourceHandle);
         }
     }
 
@@ -211,7 +227,7 @@ namespace Atlantis
         return std::this_thread::get_id() == MAIN_THREAD_ID;
     }
 
-    uint AWorld::GetRegistryVersion() const
+    uint32_t AWorld::GetRegistryVersion() const
     {
         return _registryVersion;
     }
