@@ -127,6 +127,19 @@ namespace Atlantis
 
         ComponentNames.push_back(component->GetClassData().Name);
 
+        // sort Components and ComponentNames by name, used for binary search in GetComponentOfType
+        for (int i = 0; i < Components.size(); i++)
+        {
+            for (int j = i + 1; j < Components.size(); j++)
+            {
+                if (ComponentNames[j] < ComponentNames[i])
+                {
+                    std::swap(ComponentNames[i], ComponentNames[j]);
+                    std::swap(Components[i], Components[j]);
+                }
+            }
+        }
+
         _componentMask = World->GetComponentMaskForComponents(ComponentNames);
 
         component->OnAddedToEntity(this);

@@ -156,12 +156,11 @@ namespace Atlantis
 
         AComponent *GetComponentOfType(const AName &name) const
         {
-            for (int i = 0; i < ComponentNames.size(); i++)
+            auto it = std::lower_bound(ComponentNames.begin(), ComponentNames.end(), name);
+            if (it != ComponentNames.end() && *it == name)
             {
-                if (ComponentNames[i] == name)
-                {
-                    return Components[i];
-                }
+                int index = std::distance(ComponentNames.begin(), it);
+                return Components[index];
             }
 
             return nullptr;
@@ -172,12 +171,11 @@ namespace Atlantis
         {
             static const AName &name = T::GetClassDataStatic().Name;
 
-            for (auto *comp : Components)
+            auto it = std::lower_bound(ComponentNames.begin(), ComponentNames.end(), name);
+            if (it != ComponentNames.end() && *it == name)
             {
-                if (comp->GetClassData().Name == name)
-                {
-                    return static_cast<T *>(comp);
-                }
+                int index = std::distance(ComponentNames.begin(), it);
+                return static_cast<T *>(Components[index]);
             }
 
             return nullptr;
