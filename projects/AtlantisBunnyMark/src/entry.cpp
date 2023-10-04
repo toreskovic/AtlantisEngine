@@ -180,8 +180,11 @@ extern "C"
 
     LIB_EXPORT void Init()
     {
-        SetWindowTitle("AtlantisEngine - BunnyMark");
-        SetWindowState(FLAG_WINDOW_RESIZABLE);
+        World->QueueRenderThreadCall([]()
+            {
+                SetWindowTitle("AtlantisEngine - BunnyMark");
+                SetWindowState(FLAG_WINDOW_RESIZABLE);
+            });
 
         bunnyHandle =
             World->ResourceHolder.GetTexture("Assets/wabbit_alpha.png");

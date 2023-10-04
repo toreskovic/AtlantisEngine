@@ -561,7 +561,7 @@ namespace Atlantis
 
         bool IsMainThread() const;
         
-        uint GetRegistryVersion() const;
+        uint32_t GetRegistryVersion() const;
 
         ~AWorld()
         {
@@ -684,7 +684,7 @@ namespace Atlantis
                 mask = GetComponentMaskForComponents(names);
             }
 
-            static uint lastRegistryVersion = GetRegistryVersion();
+            static uint32_t lastRegistryVersion = GetRegistryVersion();
             static auto entities = GetEntitiesWithComponents(mask);
 
             if (lastRegistryVersion != GetRegistryVersion())
@@ -812,8 +812,8 @@ private:
 
         float _deltaTime = 0.001f;
 
-        uint _frame = 0;
-        uint _registryVersion = 0;
+        uint32_t _frame = 0;
+        uint32_t _registryVersion = 0;
     };
 
     template <typename T>
