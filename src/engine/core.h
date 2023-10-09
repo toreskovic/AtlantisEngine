@@ -28,7 +28,8 @@
 #include "./generated/core.gen.h"
 
 // TODO: arbitrary number, make it configurable and / or larger by default
-typedef std::bitset<128> ComponentBitset;
+constexpr std::size_t MAX_COMPONENTS = 128;
+typedef std::bitset<MAX_COMPONENTS> ComponentBitset;
 
 namespace Atlantis
 {
@@ -167,19 +168,7 @@ namespace Atlantis
         }
 
         template <typename T>
-        T *GetComponentOfType() const
-        {
-            static const AName &name = T::GetClassDataStatic().Name;
-
-            auto it = std::lower_bound(ComponentNames.begin(), ComponentNames.end(), name);
-            if (it != ComponentNames.end() && *it == name)
-            {
-                int index = std::distance(ComponentNames.begin(), it);
-                return static_cast<T *>(Components[index]);
-            }
-
-            return nullptr;
-        }
+        T *GetComponentOfType() const;
 
         void AddComponent(AComponent *component);
 
@@ -402,9 +391,12 @@ namespace Atlantis
             T *objPtr = &obj;
             if (dynamic_cast<AComponent *>(objPtr) != nullptr)
             {
-                if (std::find(ComponentNames.begin(), ComponentNames.end(), objName) == ComponentNames.end())
+                // insert sorted
+                auto it = std::lower_bound(
+                    ComponentNames.begin(), ComponentNames.end(), objName);
+                if (it == ComponentNames.end() || *it != objName)
                 {
-                    ComponentNames.push_back(objName);
+                    ComponentNames.insert(it, objName);
                 }
             }
 
@@ -864,6 +856,37 @@ private:
         }
 
         return static_cast<T *>(_world->GetObjectsByName(name)[_uid].get());
+    }
+
+    template<typename T>
+    inline T* AEntity::GetComponentOfType() const
+    {
+        /*static const AName& name = T::GetClassDataStatic().Name;
+
+        auto it = std::lower_bound(ComponentNames.begin(), ComponentNames.end(), name);
+        if (it != ComponentNames.end() && *it == name)
+        {
+            int index = std::distance(ComponentNames.begin(), it);
+            return static_cast<T *>(Components[index]);
+        }
+
+        return nullptr;*/
+
+        // it seems binary search above is still faster than this on a small benchmark. Try on a more realistic scenario
+        static const uint32_t staticIndex =
+            std::distance(World->ComponentNames.begin(),
+                          std::find(World->ComponentNames.begin(),
+                                    World->ComponentNames.end(),
+                                    T::GetClassDataStatic().Name));
+        
+        if (_componentMask[staticIndex] == 0)
+        {
+            return nullptr;
+        }
+
+        static const size_t shift = MAX_COMPONENTS - staticIndex;
+
+        return static_cast<T*>(Components[(_componentMask << shift).count()]);
     }
 }
 

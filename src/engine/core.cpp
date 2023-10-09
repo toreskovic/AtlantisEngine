@@ -139,22 +139,13 @@ namespace Atlantis
 
     void AEntity::AddComponent(AComponent *component)
     {
-        Components.push_back(component);
+        // insert sorted
+        AName componentName = component->GetClassData().Name;
+        auto it = std::lower_bound(ComponentNames.begin(), ComponentNames.end(), componentName);
+        int index = std::distance(ComponentNames.begin(), it);
 
-        ComponentNames.push_back(component->GetClassData().Name);
-
-        // sort Components and ComponentNames by name, used for binary search in GetComponentOfType
-        for (int i = 0; i < Components.size(); i++)
-        {
-            for (int j = i + 1; j < Components.size(); j++)
-            {
-                if (ComponentNames[j] < ComponentNames[i])
-                {
-                    std::swap(ComponentNames[i], ComponentNames[j]);
-                    std::swap(Components[i], Components[j]);
-                }
-            }
-        }
+        Components.insert(Components.begin() + index, component);
+        ComponentNames.insert(it, componentName);
 
         _componentMask = World->GetComponentMaskForComponents(ComponentNames);
 
