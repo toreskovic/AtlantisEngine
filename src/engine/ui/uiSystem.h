@@ -17,6 +17,7 @@ namespace Atlantis
     public:
         UIElement* AddElement(UIElement element);
         void RemoveElement(UIElement element);
+        void AnchorElementToElement(UIElement* element, UIElement* anchor);
 
         void Draw();
     private:

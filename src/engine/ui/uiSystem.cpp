@@ -47,6 +47,10 @@ struct UiVisitor
     {
         GuiComboBox(Rect, Text.c_str(), &cb.active);
     }
+
+    void operator()(Panel& p) { GuiPanel(Rect, Text.c_str()); };
+
+    void operator()(DummyRec& dr) { GuiDummyRec(Rect, Text.c_str()); };
 };
 
 UIElement* AUiScreen::AddElement(UIElement element)
@@ -58,6 +62,12 @@ UIElement* AUiScreen::AddElement(UIElement element)
 
 void AUiScreen::RemoveElement(UIElement element)
 {
+}
+
+void AUiScreen::AnchorElementToElement(UIElement * element, UIElement * anchor)
+{
+    element->anchorX = anchor->Bounds.x / _targetWidth;
+    element->anchorY = anchor->Bounds.y / _targetHeight;
 }
 
 void AUiScreen::Draw()
