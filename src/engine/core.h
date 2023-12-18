@@ -247,6 +247,8 @@ namespace Atlantis
 
         AResourceHandle GetTexture(std::string path);
 
+        void LoadGuiStyle(std::string path);
+
         void* GetResourcePtr(std::string path);
     };
 

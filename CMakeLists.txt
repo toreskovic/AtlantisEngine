@@ -15,9 +15,11 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Dependencies
+include(FetchContent)
+
+# raylib
 find_package(raylib 5.0 QUIET) # QUIET or REQUIRED
 if (NOT raylib_FOUND) # If there's none, fetch and build raylib
-  include(FetchContent)
   FetchContent_Declare(
     raylib
     URL https://github.com/raysan5/raylib/archive/refs/tags/5.0.tar.gz
@@ -32,7 +34,14 @@ if (NOT raylib_FOUND) # If there's none, fetch and build raylib
   endif()
 endif()
 
-include(FetchContent)
+# raygui
+FetchContent_Declare(
+    raygui
+    GIT_REPOSITORY "https://github.com/raysan5/raygui"
+    GIT_TAG        "4.0"
+)
+
+FetchContent_MakeAvailable(raygui)
 
 FetchContent_Declare(
     dylib
@@ -76,6 +85,8 @@ set_property(TARGET AtlantisEngine PROPERTY ENABLE_EXPORTS ON)
 set_property(TARGET raylib PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(${PROJECT_NAME} raylib)
 
+target_include_directories(${PROJECT_NAME} PRIVATE ${raygui_SOURCE_DIR}/src)
+
 target_link_libraries(${PROJECT_NAME} dylib)
 
 #set_property(TARGET nlohmann_json PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -104,7 +115,7 @@ endif()
 IF (WIN32)
   # set stuff for windows
 ELSE()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof)
+    target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof -Wno-enum-compare -Wno-unused-result)
 ENDIF()
 
 # Web Configurations

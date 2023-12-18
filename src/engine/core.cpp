@@ -2,6 +2,7 @@
 #include "system.h"
 #include <vector>
 #include <iostream>
+#include "raygui.h"
 
 #define SERIALIZE_PROP_HELPER(type)                            \
     if (propData.Type == #type)                                \
@@ -537,6 +538,7 @@ namespace Atlantis
         }
 
         AllocatorHelpers.clear();
+        RenderThreadMutex.unlock();
     }
 
     void AWorld::OnPreHotReload()
@@ -587,6 +589,24 @@ namespace Atlantis
 
         AResourceHandle ret(this, path);
         return ret;
+    }
+
+    void AResourceHolder::LoadGuiStyle(std::string path)
+    {
+        if (World->IsMainThread())
+        {
+            World->QueueRenderThreadCall(
+                [this, path]() {
+                    GuiLoadStyle(
+                        (Helpers::GetProjectDirectory().string() + path)
+                            .c_str());
+                });
+        }
+        else
+        {
+            GuiLoadStyle(
+                (Helpers::GetProjectDirectory().string() + path).c_str());
+        }
     }
 
     void *AResourceHolder::GetResourcePtr(std::string path)
