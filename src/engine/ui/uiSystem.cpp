@@ -94,13 +94,71 @@ void AUiScreen::Draw()
 
     GuiSetStyle(DEFAULT, TEXT_SIZE, 24 * scale);
 
+    Vector2 mousePosition = GetMousePosition();
     for (auto& uiElement : _elements)
     {
         if (uiElement.OnPreDraw)
         {
-            uiElement.OnPreDraw(&uiElement);
+            _needsRedraw = uiElement.OnPreDraw(&uiElement) || _needsRedraw;
         }
 
+        // check if mouse is hovering over element
+        if (CheckCollisionPointRec(mousePosition, uiElement.Bounds))
+        {
+            if (uiElement.OnHover)
+            {
+                uiElement.OnHover(&uiElement);
+            }
+
+            _needsRedraw = true;
+        }
+        else
+        {
+            if (uiElement.OnHoverEnd)
+            {
+                uiElement.OnHoverEnd(&uiElement);
+            }
+        }
+    }
+
+    if (!_needsRedraw)
+    {
+        return;
+    }
+
+    if (_timer)
+    {
+        if (!_timer())
+        {
+            return;
+        }
+        else
+        {
+            _timer = Timer(1000 / _fps);
+        }
+    }
+    else
+    {
+        _timer = Timer(1000 / _fps);
+    }
+
+    _needsRedraw = false;
+
+    if (_renderTexture.id == 0 || _renderTexture.texture.width != currentWidth || _renderTexture.texture.height != currentHeight)
+    {
+        if (_renderTexture.id != 0)
+        {
+            UnloadRenderTexture(_renderTexture);
+        }
+
+        _renderTexture = LoadRenderTexture(currentWidth, currentHeight);
+    }
+
+    BeginTextureMode(_renderTexture);
+    ClearBackground(BLANK);
+
+    for (auto& uiElement : _elements)
+    {
         if (uiElement.OnClick)
         {
             uiVisitor.OnClick = [this, &uiElement]()
@@ -128,6 +186,8 @@ void AUiScreen::Draw()
         uiVisitor.Text = uiElement.Text;
         std::visit(uiVisitor, uiElement.Element);
     }
+
+    EndTextureMode();
 }
 
 void SUiSystem::Process(AWorld* world)
@@ -140,6 +200,12 @@ void SUiSystem::Process(AWorld* world)
         }
 
         screen.Draw();
+
+        // Draw the render texture flipped
+        DrawTexturePro(screen._renderTexture.texture,
+            Rectangle{ 0, 0, (float)screen._renderTexture.texture.width, (float)-screen._renderTexture.texture.height },
+            Rectangle{ 0, 0, (float)screen._renderTexture.texture.width, (float)screen._renderTexture.texture.height },
+            Vector2{ 0, 0 }, 0.0f, WHITE);
     }
 }
 

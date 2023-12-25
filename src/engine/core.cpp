@@ -396,6 +396,9 @@ namespace Atlantis
             command();
         }
 
+        // Process input
+        InputHandler.SyncInput();
+
         MainThreadProcessing = false;
         RenderThreadProcessing = true;
         RenderThreadMutex.unlock();

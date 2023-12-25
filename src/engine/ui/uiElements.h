@@ -265,7 +265,7 @@ struct UIElement
     std::string Text;
     UiControlVariant Element;
     std::vector<UIElement> Children;
-    std::function<void(UIElement*)> OnPreDraw;
+    std::function<bool(UIElement*)> OnPreDraw;
     std::function<void(UIElement*)> OnClick;
     std::function<void(UIElement*)> OnHover;
     std::function<void(UIElement*)> OnHoverEnd;

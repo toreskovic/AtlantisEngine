@@ -3,4 +3,6 @@
 #include <chrono>
 #include <functional>
 
-std::function<bool()> Timer(int time);
+typedef std::function<bool()> TimerFn;
+
+TimerFn Timer(int time = 0);

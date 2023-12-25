@@ -7,6 +7,7 @@
 #include "engine/reflection/reflectionHelpers.h"
 #include "engine/core.h"
 #include "engine/system.h"
+#include "timer.h"
 //#include "./generated/uiSystem.gen.h"
 
 namespace Atlantis
@@ -14,6 +15,7 @@ namespace Atlantis
 
     class AUiScreen : public AObject
     {
+        friend class SUiSystem;
     public:
         UIElement* AddElement(UIElement element);
         void RemoveElement(UIElement element);
@@ -24,6 +26,10 @@ namespace Atlantis
         std::vector<UIElement> _elements;
         int _targetWidth = 1920;
         int _targetHeight = 1080;
+        RenderTexture2D _renderTexture;
+        bool _needsRedraw = true;
+        int _fps = 60;
+        TimerFn _timer;
     };
 
     class SUiSystem : public ASystem

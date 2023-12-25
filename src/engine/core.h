@@ -24,6 +24,7 @@
 #include "baseTypeSerialization.h"
 #include "helpers.h"
 #include "engine/system.h"
+#include "engine/inputHandler.h"
 #include "engine/profiling.h"
 #include "./generated/core.gen.h"
 
@@ -349,6 +350,7 @@ namespace Atlantis
         std::vector<std::function<void()>> RenderThreadCallQueue;
 
         AResourceHolder ResourceHolder = AResourceHolder(this);
+        AInputHandler InputHandler;
 
         std::vector<std::function<void()>> ObjectCreateCommandsQueue;
         std::vector<std::function<void()>> ObjectModifyQueue;
