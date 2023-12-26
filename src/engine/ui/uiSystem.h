@@ -21,6 +21,9 @@ namespace Atlantis
         void RemoveElement(UIElement element);
         void AnchorElementToElement(UIElement* element, UIElement* anchor);
 
+        void SetVisible(bool visible);
+        bool GetVisible() const;
+
         void Draw();
     private:
         std::vector<UIElement> _elements;
@@ -30,6 +33,7 @@ namespace Atlantis
         bool _needsRedraw = true;
         int _fps = 60;
         TimerFn _timer;
+        bool _visible = true;
     };
 
     class SUiSystem : public ASystem

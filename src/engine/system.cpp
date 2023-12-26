@@ -1,5 +1,6 @@
 #include "system.h"
 #include "core.h"
+#include "engine/world.h"
 
 namespace Atlantis
 {

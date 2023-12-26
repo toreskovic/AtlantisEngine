@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "engine/profiling.h"
+#include "engine/world.h"
 #include <iostream>
 
 namespace Atlantis

@@ -1,4 +1,6 @@
 #include "uiSystem.h"
+#include "engine/world.h"
+
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 
@@ -68,6 +70,16 @@ void AUiScreen::AnchorElementToElement(UIElement * element, UIElement * anchor)
 {
     element->anchorX = anchor->Bounds.x / _targetWidth;
     element->anchorY = anchor->Bounds.y / _targetHeight;
+}
+
+void AUiScreen::SetVisible(bool visible)
+{
+    _visible = visible;
+}
+
+bool AUiScreen::GetVisible() const
+{
+    return _visible;
 }
 
 void AUiScreen::Draw()
@@ -194,6 +206,11 @@ void SUiSystem::Process(AWorld* world)
 {
     for (auto& screen : _screens)
     {
+        if (screen._visible == false)
+        {
+            continue;
+        }
+
         if (screen.World == nullptr)
         {
             screen.World = world;

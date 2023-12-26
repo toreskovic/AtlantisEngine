@@ -18,6 +18,7 @@ typedef struct tagMSG *LPMSG; // All USER defines and routines
 #include "dylib.hpp"
 #include "timer.h"
 #include "engine/core.h"
+#include "engine/world.h"
 #include "engine/renderer/renderer.h"
 #include "nlohmann/json.hpp"
 #include "fmt/core.h"

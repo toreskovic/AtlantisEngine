@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <unordered_map>
 #include "engine/core.h"
+#include "engine/world.h"
 #include "engine/renderer/renderer.h"
 #include "engine/reflection/reflectionHelpers.h"
 

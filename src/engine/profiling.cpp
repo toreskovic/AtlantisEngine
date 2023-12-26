@@ -1,5 +1,6 @@
 #include "engine/profiling.h"
 #include "engine/core.h"
+#include "engine/world.h"
 #include "timer.h"
 #include "fmt/core.h"
 #include "raylib.h"
