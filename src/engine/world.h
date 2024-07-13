@@ -63,6 +63,8 @@ namespace Atlantis
         std::atomic<bool> MainThreadProcessing = false;
         std::atomic<bool> RenderThreadProcessing = false;
 
+        bool IsProcessingObjectCreationQueue = false;
+
         SSimpleProfiler* ProfilerMainThread;
         SSimpleProfiler* ProfilerRenderThread;
 
@@ -110,9 +112,11 @@ namespace Atlantis
             T *objPtr = &obj;
             if (dynamic_cast<AComponent *>(objPtr) != nullptr)
             {
-                if (std::find(ComponentNames.begin(), ComponentNames.end(), objName) == ComponentNames.end())
+                auto it = std::lower_bound(
+                    ComponentNames.begin(), ComponentNames.end(), objName);
+                if (it == ComponentNames.end() || *it != objName)
                 {
-                    ComponentNames.push_back(objName);
+                    ComponentNames.insert(it, objName);
                 }
             }
 
@@ -248,13 +252,21 @@ namespace Atlantis
         }
 
         template <typename T>
-        void QueueNewObject(std::function<void(T *)> lambda)
+        void QueueNewObject(std::function<void(AObjPtr<T>)> lambda)
         {
-            ObjectCreateCommandsQueue.push_back([this, lambda]()
+            if (IsProcessingObjectCreationQueue)
             {
-                T* obj = NewObject_Internal<T>();
+                AObjPtr<T> obj = NewObject_Internal<T>();
                 lambda(obj);
-            });
+            }
+            else
+            {
+                ObjectCreateCommandsQueue.push_back([this, lambda]()
+                {
+                    AObjPtr<T> obj = NewObject_Internal<T>();
+                    lambda(obj);
+                });
+            }
         }
 
         void QueueSystem(std::function<void()> lambda);
@@ -266,6 +278,8 @@ namespace Atlantis
         void QueueObjectDeletion(AObjPtr<AObject> object);
 
         float GetDeltaTime() const;
+
+        double GetGameTime() const;
 
         bool IsMainThread() const;
         
@@ -503,9 +517,9 @@ namespace Atlantis
         }
 
         template <typename FunType>
-        void ForEntitiesWithComponentsParallel(FunType lambda)
+        void ForEntitiesWithComponentsParallel(FunType lambda, ASystem* system = nullptr)
         {
-            ForEntitiesWithComponents2(lambdaToFun(lambda), true);
+            ForEntitiesWithComponents2(lambdaToFun(lambda), true, system);
         }
 
         template <typename FunType>

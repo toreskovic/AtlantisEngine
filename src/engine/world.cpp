@@ -1,6 +1,7 @@
 #include "engine/world.h"
 #include "engine/core.h"
 #include "engine/system.h"
+#include "world.h"
 
 namespace Atlantis
 {
@@ -37,6 +38,11 @@ namespace Atlantis
     float AWorld::GetDeltaTime() const
     {
         return _deltaTime;
+    }
+
+    double AWorld::GetGameTime() const
+    {
+        return GetTime();
     }
 
     bool AWorld::IsMainThread() const
@@ -196,12 +202,15 @@ namespace Atlantis
 
         RenderThreadMutex.lock();
         MainThreadProcessing = true;
+        RenderThreadMutex.unlock();
 
         // Process object creation queue
+        IsProcessingObjectCreationQueue = true;
         for (auto &command : ObjectCreateCommandsQueue)
         {
             command();
         }
+        IsProcessingObjectCreationQueue = false;
 
         // Process object deletion queue
         for (auto &obj : ObjectDestroyQueue)
@@ -218,6 +227,7 @@ namespace Atlantis
             command();
         }
 
+        RenderThreadMutex.lock();
         MainThreadProcessing = false;
         RenderThreadProcessing = true;
         RenderThreadMutex.unlock();
