@@ -35,6 +35,7 @@ typedef struct tagMSG *LPMSG; // All USER defines and routines
 #include "helpers.h"
 #include "engine/profiling.h"
 #include "engine/scripting/luaRuntime.h"
+#include "all_types.gen.h"
 
 using namespace Atlantis;
 
@@ -72,12 +73,8 @@ std::atomic<bool> ExitSignal = false;
 
 void RegisterTypes()
 {
-    World.RegisterDefault<AEntity>();
-    World.RegisterDefault<CPosition>();
-    World.RegisterDefault<CColor>();
-    World.RegisterDefault<CVelocity>();
-    World.RegisterDefault<CRenderable>();
-    World.RegisterDefault<CCamera>();
+    AWorld* worldPtr = &World;
+    __GENERATED_REGISTER_TYPES(worldPtr);
 
     if (!LibTempName.empty() && LibPtr != nullptr)
     {

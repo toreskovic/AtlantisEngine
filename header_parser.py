@@ -23,6 +23,8 @@ current_file = None
 
 current_string = ""
 
+all_type_names = []
+
 
 def traverse_class_fields(node):
     if node.kind in [clang.cindex.CursorKind.FIELD_DECL, clang.cindex.CursorKind.CXX_METHOD]:
@@ -34,6 +36,7 @@ def class_decl(node):
     #print("    class", node.spelling)
     global current_class_name
     global current_string
+    global all_type_names
     current_class_name = node.spelling
 
     if len(current_macros) > 0 and current_macros[0]["type"] == "class":
@@ -81,6 +84,8 @@ def class_decl(node):
         {fields} \\
         return classData; \\
     }}\n""".format(line=macro_line, class_name=node.spelling, fields=" \\\n\t\t".join(fields_data))
+        
+        all_type_names.append(node.spelling)
     pass
 
 
@@ -226,6 +231,30 @@ tu = index.parse(
 find_typerefs(tu.cursor)
 
 # print(os.getcwd())
+
+# iterate over all types and generate a header file
+# the header file will contain:
+# void __Generated_RegisterTypes()
+# {
+#   World.RegisterDefault<type>();
+#   ...
+# }
+
+
+all_types_file = open("./src/all_types.gen.h", "r")
+all_types_string = """#pragma once
+
+#define __GENERATED_REGISTER_TYPES(World)"""
+for t in all_type_names:
+    all_types_string += f"\\\n    World->RegisterDefault<{t}>();"
+
+all_types_string += "\n"
+
+if all_types_file.read() != all_types_string:
+    all_types_file.close()
+    all_types_file = open("./src/all_types.gen.h", "w")
+    all_types_file.write(all_types_string)
+    all_types_file.close()
 
 if current_file:
     # compare current_string with the contents of current_file
