@@ -139,11 +139,36 @@ namespace Atlantis
         AObject::MarkObjectDead();
     }
 
+    uint32_t AEntity::GetStaticComponentIndex(const AName& name) const
+    {
+        return std::distance(World->ComponentNames.begin(),
+                             std::find(World->ComponentNames.begin(),
+                                       World->ComponentNames.end(),
+                                       name));
+    }
+
+    AComponent* AEntity::GetComponentOfType(const AName& name) const
+    {
+        const uint32_t staticIndex = GetStaticComponentIndex(name);
+
+        if (_componentMask[staticIndex] == 0)
+        {
+            return nullptr;
+        }
+
+        const size_t shift = MAX_COMPONENTS - staticIndex;
+
+        return Components[(_componentMask << shift).count()];
+    }
+
     void AEntity::AddComponent(AComponent *component)
     {
-        Components.push_back(component);
-
-        ComponentNames.push_back(component->GetClassData().Name);
+        AName componentName = component->GetClassData().Name;
+        auto it = std::lower_bound(ComponentNames.begin(), ComponentNames.end(), componentName);
+        int index = std::distance(ComponentNames.begin(), it);
+        
+        Components.insert(Components.begin() + index, component);
+        ComponentNames.insert(it, componentName);
 
         _componentMask = World->GetComponentMaskForComponents(ComponentNames);
 
@@ -206,11 +231,63 @@ namespace Atlantis
         if (World->IsMainThread())
         {
             World->QueueRenderThreadCall([this, path]()
-                                         { Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str())))); });
+            {
+                if (Resources.contains(path))
+                {
+                    return;
+                }
+
+                Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str()))));
+            });
         }
         else
         {
             Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str()))));
+        }
+
+        AResourceHandle ret(this, path);
+        return ret;
+    }
+
+    AResourceHandle AResourceHolder::GetShader(std::string path, int variant /*= 0*/)
+    {
+        // add a suffix to the path to differentiate between different shader variants
+        // use format "[path]__variant[variant]"
+        std::string originalPath = path;
+        path += "__variant" + std::to_string(variant);
+
+        if (World == nullptr)
+        {
+            std::cout << "AResourceHolder::GetTexture | Error: World is null" << std::endl;
+            return AResourceHandle();
+        }
+
+        if (Resources.contains(path))
+        {
+            AResourceHandle ret(Resources.at(path).get());
+            return ret;
+        }
+
+        // the only difference is the extension, .vs for vertex shader and .fs for fragment shader
+        std::string vertexShaderPath = (Helpers::GetProjectDirectory().string() + originalPath + ".vs");
+        std::string fragmentShaderPath = (Helpers::GetProjectDirectory().string() + originalPath + ".fs");
+
+        if (World->IsMainThread())
+        {
+
+            World->QueueRenderThreadCall([this, path, vertexShaderPath, fragmentShaderPath]()
+                { 
+                    if (Resources.contains(path))
+                    {
+                        return;
+                    }
+
+                    Resources.emplace(path, std::move(std::make_unique<AShaderResource>(LoadShader(vertexShaderPath.c_str(), fragmentShaderPath.c_str()))));
+                });
+        }
+        else
+        {
+            Resources.emplace(path, std::move(std::make_unique<AShaderResource>(LoadShader(vertexShaderPath.c_str(), fragmentShaderPath.c_str()))));
         }
 
         AResourceHandle ret(this, path);

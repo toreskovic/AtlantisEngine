@@ -29,7 +29,8 @@
 #include "./generated/core.gen.h"
 
 // TODO: arbitrary number, make it configurable and / or larger by default
-typedef std::bitset<128> ComponentBitset;
+constexpr std::size_t MAX_COMPONENTS = 128;
+typedef std::bitset<MAX_COMPONENTS> ComponentBitset;
 
 namespace Atlantis
 {
@@ -155,56 +156,41 @@ namespace Atlantis
 
         virtual void MarkObjectDead() override;
 
-        AComponent *GetComponentOfType(const AName &name) const
-        {
-            for (int i = 0; i < ComponentNames.size(); i++)
-            {
-                if (ComponentNames[i] == name)
-                {
-                    return Components[i];
-                }
-            }
+        uint32_t GetStaticComponentIndex(const AName &name) const;
 
-            return nullptr;
-        }
+        AComponent *GetComponentOfType(const AName &name) const;
 
         template <typename T>
         T *GetComponentOfType() const
         {
             static const AName &name = T::GetClassDataStatic().Name;
-
-            for (auto *comp : Components)
+            static const uint32_t staticIndex = GetStaticComponentIndex(name);
+            
+            if (_componentMask[staticIndex] == 0)
             {
-                if (comp->GetClassData().Name == name)
-                {
-                    return static_cast<T *>(comp);
-                }
+                return nullptr;
             }
 
-            return nullptr;
+            static const size_t shift = MAX_COMPONENTS - staticIndex;
+
+            return static_cast<T*>(Components[(_componentMask << shift).count()]);
         }
 
         void AddComponent(AComponent *component);
 
         void RemoveComponent(AComponent *component);
 
+        template <typename T>
+        void RemoveComponentOfType()
+        {
+            RemoveComponent(GetComponentOfType<T>());
+        }
+
         bool HasComponentOfType(const AName &name);
 
         bool HasComponentsByMask(const ComponentBitset &mask);
 
         bool HasComponentsOfType(const std::vector<AName> &names);
-        //{
-        // return World->GetComponentMaskForComponents(names) == _componentMask;
-        /*for (int i = 0; i < names.size(); i++)
-        {
-            if (std::find(ComponentNames.begin(), ComponentNames.end(), names[i]) == ComponentNames.end())
-            {
-                return false;
-            }
-        }
-
-        return true;*/
-        //}
 
         AEntity(){};
 
@@ -247,6 +233,8 @@ namespace Atlantis
         }
 
         AResourceHandle GetTexture(std::string path);
+
+        AResourceHandle GetShader(std::string path, int variant = 0);
 
         void LoadGuiStyle(std::string path);
 
@@ -326,6 +314,85 @@ namespace Atlantis
 
         // cache world from object after assigning
         AWorld *_world = nullptr;
+    };
+
+    template <typename T, uint32_t size>
+    struct SmallArray
+    {
+        T Data[size];
+        uint32_t Count;
+
+        std::vector<T> BigArray;
+
+        SmallArray() { Count = 0; }
+
+        void Add(T item)
+        {
+            if (Count < size)
+            {
+                Data[Count] = item;
+                Count++;
+            }
+            else
+            {
+                BigArray.push_back(item);
+            }
+        }
+
+        void Remove(T item)
+        {
+            for (uint32_t i = 0; i < Count; i++)
+            {
+                if (Data[i] == item)
+                {
+                    Data[i] = Data[Count - 1];
+                    Count--;
+                    return;
+                }
+            }
+
+            for (uint32_t i = 0; i < BigArray.size(); i++)
+            {
+                if (BigArray[i] == item)
+                {
+                    BigArray[i] = BigArray[BigArray.size() - 1];
+                    BigArray.pop_back();
+                    return;
+                }
+            }
+        }
+
+        void Clear()
+        {
+            Count = 0;
+            BigArray.clear();
+        }
+
+        T& operator[](uint32_t index)
+        {
+            if (index < Count)
+            {
+                return Data[index];
+            }
+            else
+            {
+                return BigArray[index - Count];
+            }
+        }
+
+        const T& operator[](uint32_t index) const
+        {
+            if (index < Count)
+            {
+                return Data[index];
+            }
+            else
+            {
+                return BigArray[index - Count];
+            }
+        }
+
+        uint32_t Size() const { return Count + BigArray.size(); }
     };
 
     template <typename T>

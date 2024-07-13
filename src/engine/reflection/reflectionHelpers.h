@@ -13,6 +13,8 @@
 
 #define DEF_PROPERTY()
 
+typedef Shader RaylibShader;
+
 namespace Atlantis
 {
     class AResourceHolder;
@@ -120,6 +122,18 @@ namespace Atlantis
         }
 
         virtual ~ATextureResource() { UnloadTexture(Texture); };
+    };
+
+    struct AShaderResource : public AResource
+    {
+        RaylibShader Shader;
+
+        AShaderResource(RaylibShader shader)
+        {
+            Shader = shader;
+        }
+
+        virtual ~AShaderResource() { UnloadShader(Shader); };
     };
 
     struct AResourceHandle
