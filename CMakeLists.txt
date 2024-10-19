@@ -132,7 +132,7 @@ IF (WIN32)
 ELSE()
 ENDIF()
 
-target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof -Wno-enum-compare -Wno-unused-result -Wno-deprecated-declarations -Wno-deprecated-enum-compare-conditional)
+target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof -Wno-enum-compare -Wno-unused-result -Wno-deprecated-declarations -Wno-deprecated-enum-compare-conditional -Wno-unknown-warning-option)
 target_compile_options(${PROJECT_NAME} PRIVATE -mavx -mavx2 -march=x86-64-v3)
 
 # Web Configurations

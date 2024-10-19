@@ -240,6 +240,11 @@ find_typerefs(tu.cursor)
 #   ...
 # }
 
+# create all_types.gen.h if it doesn't exist
+if not os.path.exists("./src/all_types.gen.h"):
+    all_types_file = open("./src/all_types.gen.h", "w")
+    all_types_file.write("")
+    all_types_file.close()
 
 all_types_file = open("./src/all_types.gen.h", "r")
 all_types_string = """#pragma once

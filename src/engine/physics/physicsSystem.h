@@ -101,7 +101,7 @@ public:
         _metersInUnit = 1.0f / _unitsInMeter;
 
         b2WorldDef worldDef = b2DefaultWorldDef();
-        worldDef.gravity = b2Vec2(0.0f, 0.0f);
+        worldDef.gravity = b2Vec2{0.0f, 0.0f};
 
         worldDef.workerCount = ATaskScheduler::GetThreadCount();
         worldDef.enqueueTask = EnqueueTask;

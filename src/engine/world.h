@@ -498,7 +498,7 @@ struct AWorld
 
     template<typename T, typename... Types>
     void ForEntitiesWithComponents(
-        identity<std::function<void(AEntity*, T*, Types*...)>>::type lambda,
+        typename identity<std::function<void(AEntity*, T*, Types*...)>>::type lambda,
         bool parallel = false)
     {
         static std::vector<AName> names;

@@ -42,8 +42,8 @@ void SPhysics::Process(AWorld* world)
             {
                 b2BodyDef bodyDef = b2DefaultBodyDef();
                 bodyDef.type = b2_dynamicBody;
-                bodyDef.position = b2Vec2(position->x * _metersInUnit,
-                                          position->y * _metersInUnit);
+                bodyDef.position = b2Vec2{position->x * _metersInUnit,
+                                          position->y * _metersInUnit};
 
                 bodyDef.userData = (void*)entity->_uid;
                 body->body = b2CreateBody(_physicsWorld, &bodyDef);
@@ -54,7 +54,7 @@ void SPhysics::Process(AWorld* world)
                 dynamicCircleDef.friction = body->friction;
 
                 b2Circle dynamicCircle;
-                dynamicCircle.center = b2Vec2(0.0f, 0.0f);
+                dynamicCircle.center = b2Vec2{0.0f, 0.0f};
                 dynamicCircle.radius = body->width * _metersInUnit / 3.0f;
 
                 b2CreateCircleShape(
@@ -71,8 +71,8 @@ void SPhysics::Process(AWorld* world)
             }
 
             b2Body_SetLinearVelocity(body->body,
-                                     b2Vec2(body->velocityX * _metersInUnit,
-                                            body->velocityY * _metersInUnit));
+                                     b2Vec2{body->velocityX * _metersInUnit,
+                                            body->velocityY * _metersInUnit});
         });
 
     b2World_Step(_physicsWorld, fixedDeltaTime, 2);
@@ -146,8 +146,8 @@ std::vector<AEntity*> SPhysics::GetEntitiesInArea(float x,
     height *= _metersInUnit;
 
     b2AABB aabb;
-    aabb.lowerBound = b2Vec2(x, y);
-    aabb.upperBound = b2Vec2(x + width, y + height);
+    aabb.lowerBound = b2Vec2{x, y};
+    aabb.upperBound = b2Vec2{x + width, y + height};
 
     QueryCallbackHelper callbackHelper;
     callbackHelper.World = _world;

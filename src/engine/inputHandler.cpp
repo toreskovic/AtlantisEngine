@@ -1,4 +1,5 @@
 #include "inputHandler.h"
+#include <algorithm>
 
 // alias for raylib's IsKeyDown
 constexpr auto RaylibIsKeyDown = IsKeyDown;
