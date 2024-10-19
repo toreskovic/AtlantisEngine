@@ -1,7 +1,7 @@
-#include <filesystem>
-#include <iostream>
-#include <fstream>
 #include "raylib.h"
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <string>
 
 #if defined(PLATFORM_WEB)
@@ -12,45 +12,43 @@
 #define NOGDI // All GDI defines and routines
 #define NOUSER
 // Type required before windows.h inclusion
-typedef struct tagMSG *LPMSG; // All USER defines and routines
+typedef struct tagMSG* LPMSG; // All USER defines and routines
 #endif
 
 #include "dylib.hpp"
-#include "timer.h"
 #include "engine/core.h"
-#include "engine/world.h"
+#include "engine/physics/physicsSystem.h"
 #include "engine/renderer/renderer.h"
-#include "nlohmann/json.hpp"
+#include "engine/world.h"
 #include "fmt/core.h"
-#include <thread>
+#include "nlohmann/json.hpp"
+#include "timer.h"
 #include <atomic>
-
-#include <omp.h>
+#include <thread>
 
 #if defined(_WIN32) // raylib uses these names as function parameters
 #undef near
 #undef far
 #endif
 
-#include "helpers.h"
+#include "all_types.gen.h"
 #include "engine/profiling.h"
 #include "engine/scripting/luaRuntime.h"
-#include "all_types.gen.h"
+#include "helpers.h"
 
 using namespace Atlantis;
 
 int screenWidth = 800;
 int screenHeight = 450;
 
-dylib *LibPtr = nullptr;
+dylib* LibPtr = nullptr;
 
 std::string LibName = "AtlantisGame";
 std::string LibDir;
 std::string FinalLibName = "";
 std::string DirSlash = "/";
 
-std::function<bool()> HotReloadTimer = []()
-{ return false; };
+std::function<bool()> HotReloadTimer = []() { return false; };
 
 std::string LibTempName = "";
 
@@ -85,29 +83,35 @@ void RegisterTypes()
 
 void RegisterSystems()
 {
-    World.RegisterSystem([](AWorld *world)
-                         {
-        BeginDrawing();
-        ClearBackground(RAYWHITE); },
-                         {"BeginRender"}, {"Render"}, true);
+    World.RegisterSystem(
+        [](AWorld* world)
+        {
+            BeginDrawing();
+            ClearBackground(RAYWHITE);
+        },
+        { "BeginRender" },
+        { "Render" },
+        true);
 
-    World.RegisterSystem([](AWorld *world)
-                         { EndDrawing(); },
-                         {"EndRender"}, {}, true);
-    
+    World.RegisterSystem(
+        [](AWorld* world) { EndDrawing(); }, { "EndRender" }, {}, true);
+
     World.ProfilerMainThread = new SSimpleProfiler();
     World.ProfilerRenderThread = new SSimpleProfiler();
 
     World.ProfilerMainThread->IsRenderSystem = false;
-    World.RegisterSystem(World.ProfilerMainThread, {"EndRender"});
+    World.RegisterSystem(World.ProfilerMainThread, { "EndRender" });
     World.ProfilerRenderThread->IsRenderSystem = true;
-    World.RegisterSystem(World.ProfilerRenderThread, {"EndRender", "Render"});
+    World.RegisterSystem(World.ProfilerRenderThread, { "EndRender", "Render" });
 }
 
 void DoMain();
 
 #if defined(_WIN32)
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char *pCmdLine, int nCmdShow)
+int WINAPI WinMain(HINSTANCE hInstance,
+                   HINSTANCE hPrevInstance,
+                   char* pCmdLine,
+                   int nCmdShow)
 {
     DoMain();
     return 0;
@@ -122,27 +126,9 @@ int main()
 
 void DoMain()
 {
-    auto cpuThreadCount = omp_get_num_procs();
-    if (cpuThreadCount == 0)
-    {
-        cpuThreadCount = 1;
-        std::cout << "CPU multithreading not detected!";
-    }
-    else
-    {
-        std::cout << "CPU threads detected: " << cpuThreadCount << std::endl;
-        // TODO: find a better way for this, arbitrary
-        if (cpuThreadCount > 10)
-        {
-            cpuThreadCount /= 2;
-        }
-
-        // reserved for render thread
-        cpuThreadCount -= 1;
-        std::cout << "Setting used CPU thread count to: " << cpuThreadCount << std::endl;
-    }
-
-    omp_set_num_threads(cpuThreadCount);
+    unsigned int cpuThreadCount = ATaskScheduler::GetThreadCount();
+    std::cout << "CPU threads used for game logic: " << cpuThreadCount
+              << std::endl;
 
     std::ifstream projectFile("./project.aeng");
     std::getline(projectFile, LibName);
@@ -152,30 +138,34 @@ void DoMain()
     // Raylib Initialization
     //--------------------------------------------------------------------------------------
     // start render thread for raylib
-    std::thread RenderThread([]()
-                             {
-        InitWindow(screenWidth, screenHeight, "AtlantisEngine");
-        //SetTargetFPS(120);
-        while (!WindowShouldClose())
+    std::thread RenderThread(
+        []()
         {
-            World.ProcessSystemsRenderThread(); 
-        }
-        World.ResourceHolder.Resources.clear();
-        CloseWindow();
-        World.OnShutdown();
-        ExitSignal = true; });
+            InitWindow(screenWidth, screenHeight, "AtlantisEngine");
+            // SetTargetFPS(120);
+            while (!WindowShouldClose())
+            {
+                World.ProcessSystemsRenderThread();
+            }
+            World.ResourceHolder.Resources.clear();
+            CloseWindow();
+            World.OnShutdown();
+            ExitSignal = true;
+        });
 
     RegisterTypes();
     RegisterSystems();
 
-    FinalLibName = LibDir + DirSlash + dylib::filename_components::prefix + LibName + dylib::filename_components::suffix;
+    FinalLibName = LibDir + DirSlash + dylib::filename_components::prefix +
+                   LibName + dylib::filename_components::suffix;
 
     InitDylibTest();
     std::cout << FinalLibName << std::endl;
 
     LuaRuntime.InitLua();
     LuaRuntime.SetWorld(&World);
-    LuaRuntime.RunScript(Helpers::GetProjectDirectory().string() + "lua" + DirSlash + "main.lua");
+    LuaRuntime.RunScript(Helpers::GetProjectDirectory().string() + "lua" +
+                         DirSlash + "main.lua");
 
 #if defined(PLATFORM_WEB)
     emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
@@ -183,7 +173,7 @@ void DoMain()
 
     // Main game loop
     //--------------------------------------------------------------------------------------
-    std::function<bool ()> fileCheckTimer = Timer(500);
+    std::function<bool()> fileCheckTimer = Timer(500);
     long lastModTime = GetFileModTime(FinalLibName.c_str());
 
     while (ExitSignal == false)
@@ -253,11 +243,11 @@ nlohmann::json _serialized;
 void PreHotReload()
 {
     World.OnPreHotReload();
-    const auto &entities = World.GetObjectsByName("AEntity");
+    const auto& entities = World.GetObjectsByName("AEntity");
 
     nlohmann::json serialized;
     serialized["Entities"] = {};
-    for (auto &entity : entities)
+    for (auto& entity : entities)
     {
         serialized["Entities"].push_back(entity->Serialize());
     }
@@ -272,13 +262,14 @@ void PostHotReload()
     RegisterSystems();
 
     nlohmann::json serialized = _serialized;
-    for (auto &ent : serialized["Entities"])
+    for (auto& ent : serialized["Entities"])
     {
-        AEntity *e = World.NewObject_Internal<AEntity>(AName("AEntity"));
+        AEntity* e = World.NewObject_Internal<AEntity>(AName("AEntity"));
 
-        for (auto &comp : ent["Components"])
+        for (auto& comp : ent["Components"])
         {
-            AComponent *component = World.NewObject_Internal<AComponent>(comp["Name"].get<std::string>());
+            AComponent* component = World.NewObject_Internal<AComponent>(
+                comp["Name"].get<std::string>());
             component->Deserialize(comp);
 
             e->AddComponent(component);
@@ -291,8 +282,7 @@ void PostHotReload()
 
 void LoadGameLib()
 {
-    HotReloadTimer = []()
-    { return false; };
+    HotReloadTimer = []() { return false; };
 
     if (GameLibInitialized)
     {
@@ -304,14 +294,15 @@ void LoadGameLib()
     TryUnloadGameLib();
 
     // copy lib to temp one
-    LibTempName = LibName + std::to_string(rand()) + dylib::filename_components::suffix;
+    LibTempName =
+        LibName + std::to_string(rand()) + dylib::filename_components::suffix;
 
     std::filesystem::copy_file(FinalLibName, LibDir + DirSlash + LibTempName);
 
     // load lib
     LibPtr = new dylib(LibDir, LibTempName, false);
 
-    auto setWorld = LibPtr->get_function<void(AWorld *)>("SetWorld");
+    auto setWorld = LibPtr->get_function<void(AWorld*)>("SetWorld");
     setWorld(&World);
 
     if (GameLibInitialized)
