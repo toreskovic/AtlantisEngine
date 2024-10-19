@@ -1,9 +1,18 @@
 cmake_minimum_required(VERSION 3.11) # FetchContent is available in 3.11+
 
-project(AtlantisEngine)
-
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
+
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=thin")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto=thin")
+set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+include(box2d.cmake)
+
+project(AtlantisEngine)
+
 
 # Generate compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -30,6 +39,7 @@ if (NOT raylib_FOUND) # If there's none, fetch and build raylib
     FetchContent_Populate(raylib)
     set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
     set(BUILD_SHARED_LIBS ON CACHE BOOL "Build raylib as a shared library" FORCE)
+    set(GRAPHICS GRAPHICS_API_OPENGL_43)
     add_subdirectory(${raylib_SOURCE_DIR} ${raylib_BINARY_DIR})
   endif()
 endif()
@@ -87,6 +97,11 @@ target_link_libraries(${PROJECT_NAME} raylib)
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${raygui_SOURCE_DIR}/src)
 
+target_include_directories(${PROJECT_NAME} PRIVATE ${box2d_SOURCE_DIR}/include)
+set_property(TARGET box2d PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_compile_options(box2d PUBLIC -mavx -mavx2 -march=x86-64-v3)
+target_link_libraries(${PROJECT_NAME} box2d)
+
 target_link_libraries(${PROJECT_NAME} dylib)
 
 #set_property(TARGET nlohmann_json PROPERTY POSITION_INDEPENDENT_CODE ON)
@@ -115,8 +130,10 @@ endif()
 IF (WIN32)
   # set stuff for windows
 ELSE()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof -Wno-enum-compare -Wno-unused-result)
 ENDIF()
+
+target_compile_options(${PROJECT_NAME} PRIVATE -Werror -Wno-invalid-offsetof -Wno-enum-compare -Wno-unused-result -Wno-deprecated-declarations -Wno-deprecated-enum-compare-conditional)
+target_compile_options(${PROJECT_NAME} PRIVATE -mavx -mavx2 -march=x86-64-v3)
 
 # Web Configurations
 #if (${PLATFORM} STREQUAL "Web")
@@ -153,6 +170,7 @@ add_custom_target(ParseHeaders
     ${custom_commands}
 )
 
+add_dependencies(AtlantisEngine box2d)
 add_dependencies(AtlantisEngine ParseHeaders)
 
 # add all projects
