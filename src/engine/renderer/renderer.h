@@ -8,8 +8,19 @@
 #include "engine/system.h"
 #include "./generated/renderer.gen.h"
 
+
+
 namespace Atlantis
 {
+    struct ShaderParamScalar
+    {
+        AName name;
+        float value = 0.0f;
+        int shaderLocation = -1;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ShaderParamScalar, name, value);
+
     struct CPosition : public AComponent
     {
         DEF_CLASS();
@@ -46,6 +57,35 @@ namespace Atlantis
 
         DEF_PROPERTY();
         int cellSize = 64;
+
+        DEF_PROPERTY();
+        bool flip = false;
+
+        DEF_PROPERTY();
+        float rotation = 0.0f;
+
+        DEF_PROPERTY();
+        float scaleX = 1.0f;
+
+        DEF_PROPERTY();
+        float scaleY = 1.0f;
+
+        DEF_PROPERTY();
+        float pivotX = 0.0f;
+
+        DEF_PROPERTY();
+        float pivotY = 0.0f;
+
+        DEF_PROPERTY();
+        AName shaderPath;
+
+        DEF_PROPERTY();
+        AResourceHandle shaderHandle;
+
+        DEF_PROPERTY();
+        bool dirty = false;
+
+        std::vector<ShaderParamScalar> shaderParamsScalar;
 
         CRenderable() : AComponent() { _shouldBlockRenderThread = true; };
         CRenderable(const CRenderable &other){ _shouldBlockRenderThread = true; };
