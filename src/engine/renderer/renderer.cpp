@@ -127,11 +127,12 @@ void SRenderer::Process(AWorld* world)
         auto y = (pos->y - halfHeight) * Zoom + halfHeight - camY * Zoom;
 
         // don't draw if outside of screen
-        if (x + ren->cellSize * Zoom < 0 || x > width ||
-            y + ren->cellSize * Zoom < 0 || y > height)
-        {
-            continue;
-        }
+        // this should be handled automagically by opengl
+        // if (x + ren->cellSize * Zoom < 0 || x > width ||
+        //     y + ren->cellSize * Zoom < 0 || y > height)
+        // {
+        //     continue;
+        // }
 
         ATextureResource* tex = ren->textureHandle.get<ATextureResource>();
         if (tex != nullptr)
@@ -255,14 +256,14 @@ void main() {
 
     float quadVertices[] = {
         // First triangle
-        -0.5f, -0.5f, 0.0f, 0.0f, // Bottom-left
-        0.5f, -0.5f, 1.0f, 0.0f, // Bottom-right
-        0.5f,  0.5f, 1.0f, 1.0f, // Top-right
+        0.0f, 0.0f, 0.0f, 0.0f, // Bottom-left
+        1.0f, 0.0f, 1.0f, 0.0f, // Bottom-right
+        1.0f,  1.0f, 1.0f, 1.0f, // Top-right
 
         // Second triangle
-        -0.5f, -0.5f, 0.0f, 0.0f, // Bottom-left
-        0.5f,  0.5f, 1.0f, 1.0f, // Top-right
-        -0.5f,  0.5f, 0.0f, 1.0f  // Top-left
+        0.0f, 0.0f, 0.0f, 0.0f, // Bottom-left
+        1.0f,  1.0f, 1.0f, 1.0f, // Top-right
+        0.0f,  1.0f, 0.0f, 1.0f  // Top-left
     };
 
     GLuint vao, vbo, instanceVbo, indirectBuffer;

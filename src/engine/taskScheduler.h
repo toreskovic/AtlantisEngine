@@ -56,10 +56,10 @@ public:
         // TODO: we want to have 1 thread per physical core
         // but there isn't a reliable way to get the number of physical cores
         // we can only rely on the number of logical cores or arbitrary math
-        // if (threadCount > 10)
-        // {
-        //     threadCount /= 2;
-        // }
+        if (threadCount > 10)
+        {
+            threadCount /= 2;
+        }
 
         // one thread is reserved for the render thread
         if (threadCount > 1)
