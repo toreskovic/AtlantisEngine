@@ -83,11 +83,13 @@ public:
     ~ATaskScheduler()
     {
         {
-            std::unique_lock<std::mutex> lock(_mutex);
+            std::unique_lock<std::mutex> lock(_mutex_taskCount);
+            std::unique_lock<std::mutex> lock2(_mutex_taskQueue);
             _stop = true;
         }
 
-        _condition.notify_all();
+        _condition_taskCount.notify_all();
+        _condition_taskQueue.notify_all();
 
         for (std::thread& worker : _workers)
         {
@@ -103,7 +105,10 @@ public:
     ATask& GetNewTask()
     {
         // TODO: this will crash if we exceed maxTasks
-        return _tasks[_taskCount++];
+        std::unique_lock<std::mutex> lock(_mutex_taskCount);
+        ATask& task = _tasks[_taskCount];
+        ++_taskCount;
+        return task;
     }
 
     int32_t GetTaskCount() { return _taskCount; }
@@ -118,6 +123,7 @@ public:
         }
 
         _taskCount = 0;
+        _completedTaskCount = 0;
     }
 
     int32_t GetWorkerCount() { return _workers.size(); }
@@ -156,7 +162,7 @@ public:
         }
 
         {
-            std::unique_lock<std::mutex> lock(_mutex);
+            std::unique_lock<std::mutex> lock(_mutex_taskQueue);
             _taskQueue.push(task);
             for (ATask* subtask : subtasks)
             {
@@ -164,25 +170,26 @@ public:
             }
         }
 
-        _condition.notify_one();
+        _condition_taskQueue.notify_all();
     }
 
     void WaitforTask(ATask* task)
     {
-        std::unique_lock<std::mutex> lock(_mutex);
-        _condition.wait(
+        std::unique_lock<std::mutex> lock(_mutex_taskCount);
+        _condition_taskCount.wait(
             lock,
             [this, task]
             { return _completedTasks.find(task) != _completedTasks.end(); });
-        _completedTasks.erase(task);
+        // _completedTasks.erase(task);
     }
 
     void WaitforAllTasks()
     {
-        std::unique_lock<std::mutex> lock(_mutex);
-        _condition.wait(
-            lock, [this] { return _completedTasks.size() == _taskCount; });
+        std::unique_lock<std::mutex> lock(_mutex_taskCount);
+        _condition_taskCount.wait(
+            lock, [this] { return _completedTaskCount == _taskCount; });
         _completedTasks.clear();
+        ResetTaskCount();
     }
 
 private:
@@ -194,9 +201,9 @@ private:
             ATask* task = nullptr;
 
             {
-                std::unique_lock<std::mutex> lock(_mutex);
+                std::unique_lock<std::mutex> lock(_mutex_taskQueue);
 
-                _condition.wait(
+                _condition_taskQueue.wait(
                     lock, [this] { return _stop || !_taskQueue.empty(); });
 
                 if (_stop && _taskQueue.empty())
@@ -211,39 +218,43 @@ private:
             task->execute(static_cast<int32_t>(workerIndex));
 
             {
-                std::unique_lock<std::mutex> lock(_mutex);
+                std::unique_lock<std::mutex> lock(_mutex_taskCount);
 
                 if (task->ParentTask)
                 {
                     task->ParentTask->SubTaskCount -= 1;
-                    if (task->ParentTask->SubTaskCount == 0)
-                    {
-                        _completedTasks.insert(task->ParentTask);
-                    }
                     delete task;
                 }
                 else if (!task->IsParentTask)
                 {
                     _completedTasks.insert(task);
+                    _completedTaskCount++;
                 }
                 else
                 {
+                    _condition_taskCount.wait(
+                        lock, [this, &task] { return task->SubTaskCount == 0; });
+
                     if (task->SubTaskCount == 0)
                     {
                         _completedTasks.insert(task);
+                        _completedTaskCount++;
                     }
                 }
             }
 
-            _condition.notify_all();
+            _condition_taskCount.notify_all();
         }
     }
 
     ATask _tasks[MAX_TASKS];
     std::atomic<int32_t> _taskCount;
+    std::atomic<int32_t> _completedTaskCount;
     std::vector<std::thread> _workers;
-    std::mutex _mutex;
-    std::condition_variable _condition;
+    std::mutex _mutex_taskCount;
+    std::mutex _mutex_taskQueue;
+    std::condition_variable _condition_taskCount;
+    std::condition_variable _condition_taskQueue;
     std::queue<ATask*> _taskQueue;
     std::set<ATask*> _completedTasks;
     bool _stop;

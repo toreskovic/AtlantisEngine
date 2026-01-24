@@ -75,8 +75,9 @@ void SPhysics::Process(AWorld* world)
                                             body->velocityY * _metersInUnit});
         });
 
+    world->GetTaskScheduler()->WaitforAllTasks();
     b2World_Step(_physicsWorld, fixedDeltaTime, 2);
-    world->GetTaskScheduler()->ResetTaskCount();
+    world->GetTaskScheduler()->WaitforAllTasks();
 
     _gridCoarse.Clear();
 

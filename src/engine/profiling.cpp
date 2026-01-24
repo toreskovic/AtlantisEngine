@@ -16,10 +16,25 @@ namespace Atlantis
 
         if (world->IsMainThread())
         {
+            // count entities that are alive
+            auto& entities = world->GetObjectsByName("AEntity");
+            _entitiesCount = 0;
+            for (auto& e : entities)
+            {
+                if (e->_isAlive)
+                {
+                    _entitiesCount++;
+                }
+            }
+        }
+
+        if (!world->IsRenderThread())
+        {
             return;
         }
 
         _world->ProfilingMutex.lock();
+        // BeginDrawing();
 
         static float fps = 0.0f;
 
@@ -43,28 +58,26 @@ namespace Atlantis
         int fontSize = 20;
         int textSize = MeasureText(fpsStr.c_str(), fontSize);
 
-        // count entities that are alive
-        auto& entities = world->GetObjectsByName("AEntity");
-        int count = 0;
-        for (auto& e : entities)
-        {
-            if (e->_isAlive)
-            {
-                count++;
-            }
-        }
-
-        auto entityStr = fmt::format("Entities: {}", count);
+        auto entityStr = fmt::format("Entities: {}", world->ProfilerMainThread->_entitiesCount);
         textSize = std::max(textSize, MeasureText(entityStr.c_str(), fontSize));
 
         Color bg = DARKGRAY;
         bg.a = 150;
 
         float totalDuration = 0.0f;
+        float totalDurationMainThread = 0.0f;
+        float totalDurationRenderThread = 0.0f;
         for (auto &profileData : debugProfileData)
         {
-            totalDuration += profileData.time;
+            totalDurationRenderThread += profileData.time;
         }
+
+        for (auto &profileData : world->ProfilerMainThread->debugProfileData)
+        {
+            totalDurationMainThread += profileData.time;
+        }
+
+        totalDuration = totalDurationMainThread > totalDurationRenderThread ? totalDurationMainThread : totalDurationRenderThread;
 
         // draw the profile info
         int x = 0;
@@ -86,11 +99,7 @@ namespace Atlantis
         x = 0;
         offset_tmp += 40;
 
-        totalDuration = 0.0f;
-        for (auto &profileData : world->ProfilerMainThread->debugProfileData)
-        {
-            totalDuration += profileData.time;
-        }
+        // totalDuration = 0.0f;
 
         for (auto& profileData : world->ProfilerMainThread->debugProfileData)
         {
@@ -113,6 +122,7 @@ namespace Atlantis
         DrawText(fpsStr.c_str(), 10, offset_tmp + 40 + 10, fontSize, LIGHTGRAY);
         DrawText(entityStr.c_str(), 10, offset_tmp + 40 + 30, fontSize, LIGHTGRAY);
 
+        // EndDrawing();
         _world->ProfilingMutex.unlock();
     }
 
@@ -137,24 +147,35 @@ namespace Atlantis
         return Offset;
     }
 
-    ADebugProfileHelper::ADebugProfileHelper(std::string name, Color col, SSimpleProfiler *profiler)
+    ADebugProfileHelper::ADebugProfileHelper(std::string name, Color col, AWorld* world)
     {
-        this->profiler = profiler;
-        this->name = name;
-        this->color = col;
-        this->start = std::chrono::high_resolution_clock::now();
+        if (world == nullptr)
+        {
+            return;
+        }
+
+        SSimpleProfiler* profiler = nullptr;
+        if (world->IsGameThread())
+        {
+            profiler = world->ProfilerMainThread;
+        }
+        else
+        {
+            profiler = world->ProfilerRenderThread;
+        }
 
         if (profiler == nullptr)
         {
             return;
         }
 
-        if (profiler->_world == nullptr)
-        {
-            return;
-        }
+        this->profiler = profiler;
+        this->name = name;
+        this->color = col;
+        this->start = std::chrono::high_resolution_clock::now();
+        this->_world = world;
 
-        profiler->_world->ProfilingMutex.lock();
+        _world->ProfilingMutex.lock();
 
         offset = profiler->GetOffset();
 
@@ -173,7 +194,7 @@ namespace Atlantis
             return;
         }
 
-        if (profiler->_world == nullptr)
+        if (_world == nullptr)
         {
             return;
         }
@@ -193,7 +214,7 @@ namespace Atlantis
             profiler->SetOffset(profiler->GetOffset() - 40);
         }
 
-        profiler->_world->ProfilingMutex.unlock();
+        _world->ProfilingMutex.unlock();
     }
 
 } // namespace Atlantis

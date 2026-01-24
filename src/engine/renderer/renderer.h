@@ -130,12 +130,28 @@ namespace Atlantis
         CCamera(const CCamera &other){ _shouldBlockRenderThread = true; };
     };
 
+    struct TextureData
+    {
+        // GLuint textureId;
+        unsigned int textureId;
+        int width;
+        int height;
+        int atlasX;
+        int atlasY;
+        int atlasWidth;
+        int atlasHeight;
+    };
+
     struct SRenderer : public ASystem
     {
         SRenderer()
         {
             IsRenderSystem = true;
         }
+        
+        static void RenderAllEntities(AWorld *world);
+        static void PrepareAtlasTexture(AWorld* world, RenderTexture2D& atlasTexture, std::vector<TextureData>& textureData);
+        static bool RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std::vector<TextureData> textureData, std::vector<size_t> entitiesIds, bool overrideColor = false, Color color = WHITE);
 
         virtual void Process(AWorld *world) override;
     };

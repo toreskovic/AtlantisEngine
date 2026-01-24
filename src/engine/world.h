@@ -50,7 +50,9 @@ struct AWorld
     std::mutex RenderThreadMutex;
     std::mutex ProfilingMutex;
     const std::thread::id MAIN_THREAD_ID = std::this_thread::get_id();
+    const std::thread::id RENDER_THREAD_ID;
     std::vector<std::function<void()>> RenderThreadCallQueue;
+    std::vector<std::function<void()>> RenderThreadCallQueueAsync;
 
     AResourceHolder ResourceHolder = AResourceHolder(this);
     AInputHandler InputHandler;
@@ -300,6 +302,8 @@ struct AWorld
     double GetGameTime() const;
 
     bool IsMainThread() const;
+    bool IsGameThread() const;
+    bool IsRenderThread() const;
 
     uint32_t GetRegistryVersion() const;
 
@@ -378,6 +382,7 @@ struct AWorld
     void ProcessSystemsRenderThread();
 
     void QueueRenderThreadCall(std::function<void()> lambda);
+    void QueueRenderThreadCallAsync(std::function<void()> lambda);
 
     void SyncEntities();
 

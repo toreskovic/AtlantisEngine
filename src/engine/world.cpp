@@ -50,6 +50,17 @@ bool AWorld::IsMainThread() const
     return std::this_thread::get_id() == MAIN_THREAD_ID;
 }
 
+bool AWorld::IsGameThread() const
+{
+    return !IsRenderThread();
+}
+
+bool AWorld::IsRenderThread() const
+{
+    return std::this_thread::get_id() == RENDER_THREAD_ID;
+}
+
+
 uint32_t AWorld::GetRegistryVersion() const
 {
     return _registryVersion;
@@ -161,11 +172,14 @@ void AWorld::ProcessSystems()
 
     SyncEntities();
 
+    static AWorld* world = this;
+    DO_PROFILE("AWorld::ProcessSystems - Systems", RED);
     for (std::unique_ptr<ASystem>& system : Systems)
     {
         system->Process(this);
     }
 
+    ProfilerMainThread->Process(this);
     _lastFrameTime = _currentFrameTime;
 }
 
@@ -178,6 +192,8 @@ void AWorld::ProcessSystemsRenderThread()
 
     RenderThreadMutex.lock();
     RenderThreadProcessing = true;
+
+    BeginDrawing();
 
     for (std::function<void()>& lambda : RenderThreadCallQueue)
     {
@@ -200,6 +216,16 @@ void AWorld::ProcessSystemsRenderThread()
     RenderThreadProcessing = false;
     MainThreadProcessing = true;
     RenderThreadMutex.unlock();
+
+    for (std::function<void()>& lambda : RenderThreadCallQueueAsync)
+    {
+        lambda();
+    }
+
+    RenderThreadCallQueueAsync.clear();
+
+    ProfilerRenderThread->Process(this);
+    EndDrawing();
 }
 
 void AWorld::QueueRenderThreadCall(std::function<void()> lambda)
@@ -207,6 +233,12 @@ void AWorld::QueueRenderThreadCall(std::function<void()> lambda)
     RenderThreadMutex.lock();
     RenderThreadCallQueue.push_back(lambda);
     RenderThreadMutex.unlock();
+}
+
+void AWorld::QueueRenderThreadCallAsync(std::function<void()> lambda)
+{
+    // todo: atomic push
+    RenderThreadCallQueueAsync.push_back(lambda);
 }
 
 void AWorld::SyncEntities()
@@ -365,7 +397,6 @@ void AWorld::ForEntitiesWithComponents(const ComponentBitset& componentMask,
         };
         TaskScheduler.AddTask(&task);
         TaskScheduler.WaitforAllTasks();
-        TaskScheduler.ResetTaskCount();
     }
     else
     {

@@ -26,8 +26,9 @@ namespace Atlantis
         Color color = RAYWHITE;
         int offset = 0;
         std::chrono::high_resolution_clock::time_point start;
+        AWorld* _world = nullptr;
 
-        ADebugProfileHelper(std::string name, Color col, SSimpleProfiler *profiler);
+        ADebugProfileHelper(std::string name, Color col, AWorld* world);
 
         ~ADebugProfileHelper();
     };
@@ -50,11 +51,14 @@ namespace Atlantis
 
         void SetOffset(float offset);
         float GetOffset() const;
+
+    private:
+        size_t _entitiesCount = 0;
     };
 
 
 #define DO_PROFILE(name, color) ;
-//#define DO_PROFILE(name, color) ADebugProfileHelper profileHelper##__LINE__(name, color, world->GetSystem<SSimpleProfiler>("SimpleProfiler"))
+// #define DO_PROFILE(name, color) ADebugProfileHelper profileHelper##__LINE__(name, color, world)
 } // namespace Atlantis
 
 #endif // ATLANTIS_ENGINE_PROFILING_H

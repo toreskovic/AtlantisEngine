@@ -83,26 +83,26 @@ void RegisterTypes()
 
 void RegisterSystems()
 {
-    World.RegisterSystem(
-        [](AWorld* world)
-        {
-            BeginDrawing();
-            ClearBackground(RAYWHITE);
-        },
-        { "BeginRender" },
-        { "Render" },
-        true);
+    // World.RegisterSystem(
+    //     [](AWorld* world)
+    //     {
+    //         BeginDrawing();
+    //         ClearBackground(RAYWHITE);
+    //     },
+    //     { "BeginRender" },
+    //     { "Render" },
+    //     true);
 
-    World.RegisterSystem(
-        [](AWorld* world) { EndDrawing(); }, { "EndRender" }, {}, true);
+    // World.RegisterSystem(
+    //     [](AWorld* world) { EndDrawing(); }, { "EndRender" }, {}, true);
 
     World.ProfilerMainThread = new SSimpleProfiler();
     World.ProfilerRenderThread = new SSimpleProfiler();
 
     World.ProfilerMainThread->IsRenderSystem = false;
-    World.RegisterSystem(World.ProfilerMainThread, { "EndRender" });
+    // World.RegisterSystem(World.ProfilerMainThread, { "BeginRender" });
     World.ProfilerRenderThread->IsRenderSystem = true;
-    World.RegisterSystem(World.ProfilerRenderThread, { "EndRender", "Render" });
+    // World.RegisterSystem(World.ProfilerRenderThread, { "BeginRender" });
 }
 
 void DoMain();
@@ -142,6 +142,8 @@ void DoMain()
         []()
         {
             InitWindow(screenWidth, screenHeight, "AtlantisEngine");
+            std::thread::id& renderThreadId = const_cast<std::thread::id&>(World.RENDER_THREAD_ID);
+            renderThreadId = std::this_thread::get_id();
             // SetTargetFPS(120);
             while (!WindowShouldClose())
             {
