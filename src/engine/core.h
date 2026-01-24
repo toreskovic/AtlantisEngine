@@ -161,15 +161,18 @@ struct AEntity : public AObject
     template<typename T>
     T* GetComponentOfType() const
     {
-        static const AName& name = T::GetClassDataStatic().Name;
-        static const uint32_t staticIndex = GetStaticComponentIndex(name);
+        static uint32_t staticIndex = std::numeric_limits<uint32_t>::max();
+        static uint32_t shift = 0;
+        if (staticIndex == std::numeric_limits<uint32_t>::max())
+        {
+            staticIndex = GetStaticComponentIndex(T::GetClassDataStatic().Name);
+            shift = MAX_COMPONENTS - staticIndex;
+        }
 
-        if (_componentMask[staticIndex] == 0)
+        if (_componentMask.test(staticIndex) == false)
         {
             return nullptr;
         }
-
-        static const size_t shift = MAX_COMPONENTS - staticIndex;
 
         return static_cast<T*>(Components[(_componentMask << shift).count()]);
     }
@@ -186,7 +189,10 @@ struct AEntity : public AObject
 
     bool HasComponentOfType(const AName& name);
 
-    bool HasComponentsByMask(const ComponentBitset& mask);
+    inline bool HasComponentsByMask(const ComponentBitset& mask)
+    {
+        return (mask & _componentMask) == mask;
+    }
 
     bool HasComponentsOfType(const std::vector<AName>& names);
 

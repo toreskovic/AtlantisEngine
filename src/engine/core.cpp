@@ -214,11 +214,6 @@ bool AEntity::HasComponentOfType(const AName& name)
     return false;
 }
 
-bool AEntity::HasComponentsByMask(const ComponentBitset& mask)
-{
-    return (mask & _componentMask) == mask;
-}
-
 bool AEntity::HasComponentsOfType(const std::vector<AName>& names)
 {
     return HasComponentsByMask(World->GetComponentMaskForComponents(names));
