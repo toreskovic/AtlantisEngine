@@ -5,10 +5,9 @@
 
 #include "engine/reflection/reflectionHelpers.h"
 #include "engine/core.h"
+#include "engine/renderer/renderProxy.h"
 #include "engine/system.h"
 #include "./generated/renderer.gen.h"
-
-
 
 namespace Atlantis
 {
@@ -82,13 +81,15 @@ namespace Atlantis
         DEF_PROPERTY();
         AResourceHandle shaderHandle;
 
-        DEF_PROPERTY();
-        bool dirty = false;
-
         std::vector<ShaderParamScalar> shaderParamsScalar;
 
         CRenderable() : AComponent() { _shouldBlockRenderThread = true; };
         CRenderable(const CRenderable &other){ _shouldBlockRenderThread = true; };
+
+        virtual void OnAddedToEntity(AEntity* entity) override;
+        virtual void OnRemovedFromEntity(AEntity* entity) override;
+
+        void OnCreated(bool firstTime = false);
     };
 
     struct CVelocity : public AComponent

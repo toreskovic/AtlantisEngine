@@ -5,6 +5,7 @@
 #include "engine/reflection/reflectionHelpers.h"
 #include "engine/taskScheduler.h"
 #include "engine/ui/uiSystem.h"
+#include "engine/renderer/renderProxy.h"
 #include "nlohmann/json.hpp"
 #include <algorithm>
 #include <atomic>
@@ -33,6 +34,20 @@ struct AObjectCreateCommand
 {
     std::function<void()> Callback;
 };
+
+template <typename, typename = void>
+struct has_oncreated : std::false_type {};
+
+template <typename T>
+struct has_oncreated<T, std::void_t<decltype(std::declval<T&>().OnCreated(std::declval<bool>))>> : std::true_type {};
+
+// specialization when OnCreated exists
+template <typename T, std::enable_if_t<has_oncreated<T>::value, int> = 0>
+void OnCreated(T* t, bool firstTime = false) { t->OnCreated(firstTime); }
+
+// fallback when OnCreated does not exist
+template <typename T, std::enable_if_t<!has_oncreated<T>::value, int> = 0>
+void OnCreated(T*, bool firstTime = false) { /* ... */ }
 
 struct AWorld
 {
@@ -133,7 +148,7 @@ struct AWorld
     template<typename T>
     void RegisterDefault(AName name = AName::None())
     {
-        RegisterDefault<T, 10000>(name);
+        RegisterDefault<T, 10000, 1000000>(name);
     }
 
     template<typename T>
@@ -158,6 +173,7 @@ struct AWorld
 
             T* obj = static_cast<T*>(objPtr.Get(name, false));
             obj->_isAlive = true;
+            OnCreated<T>(obj, false);
 
             return obj;
         }
@@ -230,6 +246,8 @@ struct AWorld
 
         allocatorHelper.Count++;
 
+        OnCreated<T>(cpy_T, true);
+
         std::unique_ptr<AObject, no_deleter> sPtr(cpy_T);
         ObjectLists[name].push_back(std::move(sPtr));
 
@@ -296,6 +314,15 @@ struct AWorld
     void MarkObjectDead(AObject* object);
 
     void QueueObjectDeletion(AObjPtr<AObject> object);
+
+    std::vector<ARenderProxy2D> RenderProxies2D;
+    std::vector<ARenderProxy2D> RenderProxies2D2;
+    bool MainUsingRenderProxies2 = false;
+    bool RenderUsingRenderProxies2 = true;
+
+    size_t AddRenderProxy(const ARenderProxy2D& proxy);
+
+    void RemoveRenderProxy(size_t uid);
 
     float GetDeltaTime() const;
 
@@ -513,7 +540,8 @@ struct AWorld
         {
             GetNamesOfComponents<T, Types...>(names);
             mask = GetComponentMaskForComponents(names);
-            shouldQueue = ShouldComponentsBlockRenderThread<T, Types...>();
+            // shouldQueue = ShouldComponentsBlockRenderThread<T, Types...>();
+            shouldQueue = false;
         }
 
         std::function<void(AEntity*)> lambdaWrapper = [lambda](AEntity* entity)
@@ -548,7 +576,8 @@ struct AWorld
         {
             GetNamesOfComponents<T, Types...>(names);
             mask = GetComponentMaskForComponents(names);
-            shouldQueue = ShouldComponentsBlockRenderThread<T, Types...>();
+            // shouldQueue = ShouldComponentsBlockRenderThread<T, Types...>();
+            shouldQueue = false;
         }
 
         std::function<void(AEntity*)> lambdaWrapper = [lambda](AEntity* entity)

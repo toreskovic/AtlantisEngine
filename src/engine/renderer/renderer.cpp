@@ -6,10 +6,59 @@
 #include <rlgl.h>
 #include <raymath.h>
 #include <external/glad.h>
+#include <execution>
 
 namespace Atlantis
 {
+    struct ProxyVectorHelper
+    {
+        std::vector<ARenderProxy2D> vector;
 
+        size_t actualSize = 0;
+    };
+
+void CRenderable::OnAddedToEntity(AEntity* entity)
+{
+    World->RenderProxies2D[_uid]._uid = _uid;
+    World->RenderProxies2D2[_uid]._uid = _uid;
+
+    World->RenderProxies2D[_uid].zoom = scaleX;
+    World->RenderProxies2D2[_uid].zoom = scaleX;
+
+    AComponent::OnAddedToEntity(entity);
+}
+
+void CRenderable::OnRemovedFromEntity(AEntity* entity)
+{
+    // remove render proxy from the world
+    if (World != nullptr)
+    {
+        World->RemoveRenderProxy(_uid);
+    }
+
+    AComponent::OnRemovedFromEntity(entity);
+}
+
+void CRenderable::OnCreated(bool firstTime)
+{
+    if (firstTime)
+    {
+        // add render proxy to the world
+        if (World != nullptr)
+        {
+            ARenderProxy2D proxy;
+            proxy.position = {0.0f, 0.0f};
+            proxy.color = WHITE;
+            proxy.textureIndex = 0; // will be set in the renderer
+            proxy.rotation = rotation;
+            proxy.zoom = 0.0f;
+            proxy.pivot = {pivotX, pivotY};
+            proxy._uid = _uid;
+
+            World->AddRenderProxy(proxy);
+        }
+    }
+}
 
 // Helpers for packing
 static inline float WrapAnglePi(float radians) {
@@ -34,77 +83,8 @@ static inline uint8_t PackUnorm8(float x) {
 }
 
 // the following is used for indirect rendering
-struct EntityData
-{
-    Vector2 position;
-    Color color;
-    GLuint textureIndex;
-    float rotation = 0.0f;
-    float zoom = 1.0f;
-    Vector2 pivot = { 0.5f, 0.5f };
-    uint8_t colorOverrideFactor = 0;
-
-    EntityData() = default;
-
-    EntityData(Vector2 pos, Color col, GLuint texIdx, float rot, float zm, Vector2 piv, uint8_t colorOverride) :
-        position(pos),
-        color(col),
-        textureIndex(texIdx),
-        rotation(rot),
-        zoom(zm),
-        pivot(piv),
-        colorOverrideFactor(colorOverride)
-    {
-    }
-
-    EntityData(const EntityData& other) :
-        position(other.position),
-        color(other.color),
-        textureIndex(other.textureIndex),
-        rotation(other.rotation),
-        zoom(other.zoom),
-        pivot(other.pivot),
-        colorOverrideFactor(other.colorOverrideFactor)
-    {
-    }
-
-    EntityData(EntityData&& other) :
-        position(other.position),
-        color(other.color),
-        textureIndex(other.textureIndex),
-        rotation(other.rotation),
-        zoom(other.zoom),
-        pivot(other.pivot),
-        colorOverrideFactor(other.colorOverrideFactor)
-    {
-    }
-
-    // optimized for packing
-    // Vector2 position;
-    // Color color;
-    // GLushort textureIndex;
-    // int16_t rotation;
-    // uint16_t zoom;
-    // uint8_t pivot[2];
-    // uint8_t colorOverrideFactor;
-
-    // EntityData() = default;
-
-    // EntityData(Vector2 pos, Color col, GLuint texIdx, float rot, float zm, Vector2 piv)
-    // {
-    //     position = pos;
-    //     color = col;
-    //     textureIndex = (GLushort)texIdx;
-    //     rotation = PackSnorm16(WrapAnglePi(rot * DEG2RAD) / PI);
-    //     zoom = PackSnorm16(zm / 16.0f);
-    //     pivot[0] = PackUnorm8(piv.x);
-    //     pivot[1] = PackUnorm8(piv.y);
-    //     colorOverrideFactor = 0;
-    // }
-};
-
 void RenderEntitiesInternal(const RenderTexture2D& atlasTexture, 
-                             const std::vector<EntityData>& entityData,
+                             const std::vector<ARenderProxy2D>& entityData,
                              const std::vector<TextureData>& textureData)
 {
     static Shader shader = LoadShaderFromMemory(
@@ -238,47 +218,47 @@ void main() {
         // Instance buffer (for position, scale, rotation)
         glGenBuffers(1, &instanceVbo);
         glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
-        // glBufferData(GL_ARRAY_BUFFER, entityData.size() * sizeof(EntityData), entityData.data(), GL_DYNAMIC_DRAW);
+        // glBufferData(GL_ARRAY_BUFFER, entityData.size() * sizeof(ARenderProxy2D), entityData.data(), GL_DYNAMIC_DRAW);
 
         glBufferData(GL_ARRAY_BUFFER, 1, nullptr, GL_STREAM_DRAW);
-        // glBufferData(GL_ARRAY_BUFFER, entityData.size() * sizeof(EntityData), nullptr, GL_STREAM_DRAW);
-        // glBufferSubData(GL_ARRAY_BUFFER, 0, entityData.size() * sizeof(EntityData), entityData.data());
+        // glBufferData(GL_ARRAY_BUFFER, entityData.size() * sizeof(ARenderProxy2D), nullptr, GL_STREAM_DRAW);
+        // glBufferSubData(GL_ARRAY_BUFFER, 0, entityData.size() * sizeof(ARenderProxy2D), entityData.data());
 
         // Position (vec2)
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(EntityData), (void*)offsetof(EntityData, position));
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, position));
         glEnableVertexAttribArray(2);
         glVertexAttribDivisor(2, 1);  // One per instance
 
         // Color (vec4)
-        glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(EntityData), (void*)offsetof(EntityData, color));
+        glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, color));
         glEnableVertexAttribArray(3);
         glVertexAttribDivisor(3, 1);  // One per instance
 
         // Texture id (uint)
-        glVertexAttribIPointer(4, 1, GL_UNSIGNED_SHORT, sizeof(EntityData), (void*)offsetof(EntityData, textureIndex));
+        glVertexAttribIPointer(4, 1, GL_UNSIGNED_SHORT, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, textureIndex));
         glEnableVertexAttribArray(4);
         glVertexAttribDivisor(4, 1);  // One per instance
 
         // rotation (float)
-        glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(EntityData), (void*)offsetof(EntityData, rotation));
-        // glVertexAttribPointer(5, 1, GL_SHORT, GL_TRUE, sizeof(EntityData), (void*)offsetof(EntityData, rotation));
+        glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, rotation));
+        // glVertexAttribPointer(5, 1, GL_SHORT, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, rotation));
         glEnableVertexAttribArray(5);
         glVertexAttribDivisor(5, 1);  // One per instance
 
         // zoom (float)
-        glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, sizeof(EntityData), (void*)offsetof(EntityData, zoom));
-        // glVertexAttribPointer(6, 1, GL_SHORT, GL_TRUE, sizeof(EntityData), (void*)offsetof(EntityData, zoom));
+        glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, zoom));
+        // glVertexAttribPointer(6, 1, GL_SHORT, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, zoom));
         glEnableVertexAttribArray(6);
         glVertexAttribDivisor(6, 1);  // One per instance
 
         // pivot (vec2)
-        glVertexAttribPointer(7, 2, GL_FLOAT, GL_TRUE, sizeof(EntityData), (void*)offsetof(EntityData, pivot));
-        // glVertexAttribPointer(7, 2, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(EntityData), (void*)offsetof(EntityData, pivot));
+        glVertexAttribPointer(7, 2, GL_FLOAT, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, pivot));
+        // glVertexAttribPointer(7, 2, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, pivot));
         glEnableVertexAttribArray(7);
         glVertexAttribDivisor(7, 1);  // One per instance
 
         // color override factor (float)
-        glVertexAttribPointer(8, 1, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(EntityData), (void*)offsetof(EntityData, colorOverrideFactor));
+        glVertexAttribPointer(8, 1, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, colorOverrideFactor));
         glEnableVertexAttribArray(8);
         glVertexAttribDivisor(8, 1);  // One per instance
 
@@ -299,7 +279,7 @@ void main() {
     glBindVertexArray(vao);
     
     glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
-    GLsizeiptr instanceBufferSize = entityData.size() * sizeof(EntityData);
+    GLsizeiptr instanceBufferSize = entityData.size() * sizeof(ARenderProxy2D);
     glBufferData(GL_ARRAY_BUFFER, instanceBufferSize, nullptr, GL_STREAM_DRAW); // orphan
     if (instanceBufferSize) glBufferSubData(GL_ARRAY_BUFFER, 0, instanceBufferSize, entityData.data());
 
@@ -377,35 +357,50 @@ void main() {
 
 void SRenderer::RenderAllEntities(AWorld* world)
 {
-    static std::vector<EntityData> entityData;
     static std::vector<TextureData> textureData;
 
     static RenderTexture2D atlasTexture = LoadRenderTexture(16384, 16384);
 
-    // clear the atlas texture
-    BeginTextureMode(atlasTexture);
-    ClearBackground(BLANK);
+    std::vector<ARenderProxy2D>& renderProxies = world->RenderUsingRenderProxies2 ? world->RenderProxies2D2 : world->RenderProxies2D;
 
-    // track atlas data
-    int nextAtlasX = 0;
-    int nextAtlasY = 0;
-    int atlasWidth = atlasTexture.texture.width;
-    int atlasHeight = atlasTexture.texture.height;
+    size_t startIndex = 0;
+    size_t endIndex = renderProxies.size();
 
-    int nextAtlasRowY = 0;
+    CRenderable* renderComponents = (CRenderable*)world->GetObjectsByNameRaw("CRenderable");
+    size_t renderComponentCount = world->GetObjectCountByType("CRenderable");
 
-    auto commitToAtlas = [&] (Texture2D texture)
+    std::for_each(std::execution::par, renderProxies.begin(), renderProxies.end(),
+    [&](ARenderProxy2D& proxy)
     {
-        if (nextAtlasX + texture.width > atlasWidth)
+        if (proxy._uid == std::numeric_limits<size_t>::max())
         {
-            nextAtlasX = 0;
-            nextAtlasY = nextAtlasRowY;
+            return;
         }
-        
-        DrawTextureEx(texture, { (float)nextAtlasX, (float)nextAtlasY }, 0.0f, 1.0f, WHITE);
 
-        nextAtlasRowY = std::max(nextAtlasRowY, nextAtlasY + texture.height);
-    };
+        // get the renderable component for this proxy, its uid matches the proxy's uid
+        CRenderable& renderable = renderComponents[proxy._uid];
+
+        if(proxy._textureResourceAddress == nullptr)
+        {
+            proxy._textureResourceAddress = (Texture2D*)renderable.textureHandle.GetPtr();
+        }
+
+        if (renderable.Owner != nullptr)
+        {
+            const CPosition* position = renderable.Owner->GetComponentOfType<CPosition>();
+            const CColor* color = renderable.Owner->GetComponentOfType<CColor>();
+
+            if (position != nullptr)
+            {
+                proxy.position = { position->x, position->y };
+            }
+
+            if (color != nullptr)
+            {
+                proxy.color = color->col;
+            }
+        }
+    });
 
     // get camera
     float Zoom = 1.0f;
@@ -417,121 +412,117 @@ void SRenderer::RenderAllEntities(AWorld* world)
     int camX = 0;
     int camY = 0;
 
-    auto& cameras = world->GetEntitiesWithComponents<CCamera, CPosition>();
-    if (cameras.size() > 0)
+    static const AName cameraComponentName("CCamera");
+    const CCamera* rawCameras = (const CCamera*)world->GetObjectsByNameRaw(cameraComponentName);
+    size_t cameraCount = world->GetObjectCountByType("CCamera");
+    if (cameraCount > 0)
     {
-        CCamera* cam = cameras[0]->GetComponentOfType<CCamera>();
-        CPosition* pos = cameras[0]->GetComponentOfType<CPosition>();
-        Zoom = cam->Zoom;
-        camX = pos->x;
-        camY = pos->y;
-    }
+        const CCamera* camera = (CCamera*)&rawCameras[0];
+        Zoom = camera->Zoom;
 
-    static const ComponentBitset componentMask =
-        world->GetComponentMaskForComponents(
-            { "CRenderable", "CPosition", "CColor" });
-
-    static std::vector<size_t> entitiesIds;
-
-    static const AName entityName = "AEntity";
-    const size_t entityCount = world->GetObjectCountByType(entityName);
-    const AEntity* rawEntities = (const AEntity*)world->GetObjectsByNameRaw(entityName);
-
-    entityData.clear();
-    textureData.clear();
-    entityData.reserve(entityCount);
-
-    if (entitiesIds.size() < entityCount)
-    {
-        for (int i = entitiesIds.size(); i < entityCount; i++)
+        if(camera->Owner != nullptr)
         {
-            entitiesIds.push_back(rawEntities[i]._uid);
-        }
-    }
-
-    for (size_t entityId = 0; entityId < entitiesIds.size(); entityId++)
-    {
-        AEntity* e = (AEntity*)&rawEntities[entityId];
-
-        if (!e->_isAlive || !e->HasComponentsByMask(componentMask))
-        {
-            continue;
-        }
-
-        CRenderable* ren = e->GetComponentOfType<CRenderable>();
-        CPosition* pos = e->GetComponentOfType<CPosition>();
-        CColor* col = e->GetComponentOfType<CColor>();
-
-        // scale using zoom
-        auto x = (pos->x - halfWidth) * Zoom + halfWidth - camX * Zoom;
-        auto y = (pos->y - halfHeight) * Zoom + halfHeight - camY * Zoom;
-
-        // don't draw if outside of screen
-        // this should be handled automagically by opengl
-        // if (x + ren->cellSize * Zoom < 0 || x > width ||
-        //     y + ren->cellSize * Zoom < 0 || y > height)
-        // {
-        //     continue;
-        // }
-
-        ATextureResource* tex = ren->textureHandle.get<ATextureResource>();
-        if (tex != nullptr)
-        {
-            // EntityData tmpData{
-            //     { x, y }, col->col, tex->Texture.id, ren->rotation, Zoom, { ren->pivotX, ren->pivotY }
-            // };
-
-            bool foundTexture = false;
-            GLuint textureIndex = tex->Texture.id;
-            for (size_t texIdx = 0; texIdx < textureData.size(); texIdx++)
+            CPosition* pos = camera->Owner->GetComponentOfType<CPosition>();
+            if (pos != nullptr)
             {
-                if (textureData[texIdx].textureId == tex->Texture.id)
-                {
-                    foundTexture = true;
-                    textureIndex = texIdx;
-                    break;
-                }
+                camX = pos->x;
+                camY = pos->y;
             }
-
-            if (!foundTexture)
-            {
-                TextureData tmpTextureData{ tex->Texture.id,
-                                            tex->Texture.width,
-                                            tex->Texture.height };
-
-                commitToAtlas(tex->Texture);
-                tmpTextureData.atlasX = nextAtlasX;
-                tmpTextureData.atlasY = nextAtlasY;
-                tmpTextureData.atlasWidth = atlasWidth;
-                tmpTextureData.atlasHeight = atlasHeight;
-
-                nextAtlasX += tex->Texture.width;
-
-                textureData.push_back(tmpTextureData);
-                textureIndex = textureData.size() - 1;
-            }
-
-            // entityData.push_back(tmpData);
-            entityData.emplace_back(
-                Vector2{ x, y },
-                col->col,
-                textureIndex,
-                ren->rotation,
-                Zoom,
-                Vector2{ ren->pivotX, ren->pivotY },
-                0
-            );
         }
     }
 
-    EndTextureMode();
 
-    world->QueueRenderThreadCallAsync([world]()
+    world->QueueRenderThreadCallAsync([world, Zoom, width, height, halfWidth, halfHeight, camX, camY]()
     {
         DO_PROFILE("SRenderer::RenderEntitiesInternal", DARKBLUE);
-        RenderEntitiesInternal(atlasTexture, entityData, textureData);
+        // clear the atlas texture
+        BeginTextureMode(atlasTexture);
+        ClearBackground(BLANK);
+
+        // track atlas data
+        int nextAtlasX = 0;
+        int nextAtlasY = 0;
+        int atlasWidth = atlasTexture.texture.width;
+        int atlasHeight = atlasTexture.texture.height;
+
+        int nextAtlasRowY = 0;
+
+        auto commitToAtlas = [&] (Texture2D texture)
+        {
+            if (nextAtlasX + texture.width > atlasWidth)
+            {
+                nextAtlasX = 0;
+                nextAtlasY = nextAtlasRowY;
+            }
+            
+            DrawTextureEx(texture, { (float)nextAtlasX, (float)nextAtlasY }, 0.0f, 1.0f, WHITE);
+
+            nextAtlasRowY = std::max(nextAtlasRowY, nextAtlasY + texture.height);
+        };
+
+        textureData.clear();
+
+        std::vector<ARenderProxy2D>& renderProxies = world->RenderUsingRenderProxies2 ? world->RenderProxies2D2 : world->RenderProxies2D;
+        for (ARenderProxy2D& proxy : renderProxies)
+        {
+            // scale using zoom
+            auto x = (proxy.position.x - halfWidth) * Zoom + halfWidth - camX * Zoom;
+            auto y = (proxy.position.y - halfHeight) * Zoom + halfHeight - camY * Zoom;
+
+            // don't draw if outside of screen
+            // this should be handled automagically by opengl
+            // if (x + ren->cellSize * Zoom < 0 || x > width ||
+            //     y + ren->cellSize * Zoom < 0 || y > height)
+            // {
+            //     continue;
+            // }
+
+            ATextureResource* tex = (ATextureResource*)proxy._textureResourceAddress;
+            if (tex != nullptr)
+            {
+                // ARenderProxy2D tmpData{
+                //     { x, y }, col->col, tex->Texture.id, ren->rotation, Zoom, { ren->pivotX, ren->pivotY }
+                // };
+
+                bool foundTexture = false;
+                GLuint textureIndex = tex->Texture.id;
+                for (size_t texIdx = 0; texIdx < textureData.size(); texIdx++)
+                {
+                    if (textureData[texIdx].textureId == tex->Texture.id)
+                    {
+                        foundTexture = true;
+                        textureIndex = texIdx;
+                        break;
+                    }
+                }
+
+                if (!foundTexture)
+                {
+                    TextureData tmpTextureData{ tex->Texture.id,
+                                                tex->Texture.width,
+                                                tex->Texture.height };
+
+                    commitToAtlas(tex->Texture);
+                    tmpTextureData.atlasX = nextAtlasX;
+                    tmpTextureData.atlasY = nextAtlasY;
+                    tmpTextureData.atlasWidth = atlasWidth;
+                    tmpTextureData.atlasHeight = atlasHeight;
+
+                    nextAtlasX += tex->Texture.width;
+
+                    textureData.push_back(tmpTextureData);
+                    textureIndex = textureData.size() - 1;
+                }
+
+                proxy.position = { x, y };
+                proxy.textureIndex = textureIndex;
+            }
+        }
+
+        EndTextureMode();
+
+        RenderEntitiesInternal(atlasTexture, renderProxies, textureData);
     });
-    // RenderEntitiesInternal(atlasTexture, entityData, textureData);
 }
 
 void SRenderer::PrepareAtlasTexture(AWorld* world, RenderTexture2D& atlasTexture, std::vector<TextureData>& textureData)
@@ -661,7 +652,7 @@ void SRenderer::PrepareAtlasTexture(AWorld* world, RenderTexture2D& atlasTexture
 
 bool SRenderer::RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std::vector<TextureData> textureData, std::vector<size_t> entitiesIds, bool overrideColor, Color color)
 {
-    static std::vector<EntityData> entityData;
+    static std::vector<ARenderProxy2D> entityData;
 
     // get camera
     float Zoom = 1.0f;
@@ -716,7 +707,7 @@ bool SRenderer::RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std
         ATextureResource* tex = ren->textureHandle.get<ATextureResource>();
         if (tex != nullptr)
         {
-            EntityData tmpData{
+            ARenderProxy2D tmpData{
                 { x, y }, col->col, tex->Texture.id, ren->rotation, Zoom, { ren->pivotX, ren->pivotY }, 0
             };
 
@@ -751,7 +742,7 @@ bool SRenderer::RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std
 
     // world->QueueRenderThreadCallAsync([atlasTexture, textureData]()
     // {
-        RenderEntitiesInternal(atlasTexture, entityData, textureData);
+        // RenderEntitiesInternal(atlasTexture, entityData, textureData);
     // });
     // RenderEntitiesInternal(atlasTexture, entityData, textureData);
     return !needsAtlasRefresh;

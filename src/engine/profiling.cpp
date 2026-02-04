@@ -9,6 +9,10 @@ namespace Atlantis
 {
     void SSimpleProfiler::Process(AWorld *world)
     {
+#if !ATLANTIS_PROFILING
+        return;
+#endif
+
         if (_world == nullptr)
         {
             _world = world;

@@ -50,6 +50,8 @@ struct UiVisitor
         GuiComboBox(Rect, Text.c_str(), &cb.active);
     }
 
+    void operator()(GroupBox& gb) { GuiGroupBox(Rect, Text.c_str()); };
+
     void operator()(Panel& p) { GuiPanel(Rect, Text.c_str()); };
 
     void operator()(DummyRec& dr) { GuiDummyRec(Rect, Text.c_str()); };

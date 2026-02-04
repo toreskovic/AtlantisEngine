@@ -144,7 +144,7 @@ void DoMain()
             InitWindow(screenWidth, screenHeight, "AtlantisEngine");
             std::thread::id& renderThreadId = const_cast<std::thread::id&>(World.RENDER_THREAD_ID);
             renderThreadId = std::this_thread::get_id();
-            // SetTargetFPS(120);
+            SetTargetFPS(120);
             while (!WindowShouldClose())
             {
                 World.ProcessSystemsRenderThread();

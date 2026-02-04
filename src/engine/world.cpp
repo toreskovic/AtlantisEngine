@@ -3,6 +3,7 @@
 #include "engine/system.h"
 #include "engine/taskScheduler.h"
 #include "world.h"
+#include <execution>
 
 namespace Atlantis
 {
@@ -33,6 +34,30 @@ void AWorld::MarkObjectDead(AObject* object)
 void AWorld::QueueObjectDeletion(AObjPtr<AObject> object)
 {
     ObjectDestroyQueue.push_back(object);
+}
+
+size_t AWorld::AddRenderProxy(const ARenderProxy2D& proxy)
+{
+    if (RenderProxies2D.size() > proxy._uid)
+    {
+        RenderProxies2D[proxy._uid] = proxy;
+        RenderProxies2D2[proxy._uid] = proxy;
+        return proxy._uid;
+    }
+
+    RenderProxies2D.push_back(proxy);
+    RenderProxies2D2.push_back(proxy);
+    return RenderProxies2D.size();
+}
+
+void AWorld::RemoveRenderProxy(size_t uid)
+{
+    ARenderProxy2D& proxy = RenderProxies2D[uid];
+    ARenderProxy2D& proxy2 = RenderProxies2D2[uid];
+    proxy._uid = std::numeric_limits<size_t>::max();
+    proxy.zoom = 0.0f;
+    proxy2._uid = std::numeric_limits<size_t>::max();
+    proxy2.zoom = 0.0f;
 }
 
 float AWorld::GetDeltaTime() const
@@ -192,6 +217,7 @@ void AWorld::ProcessSystemsRenderThread()
 
     RenderThreadMutex.lock();
     RenderThreadProcessing = true;
+    RenderUsingRenderProxies2 = !RenderUsingRenderProxies2;
 
     BeginDrawing();
 
@@ -210,10 +236,6 @@ void AWorld::ProcessSystemsRenderThread()
     // Process input
     InputHandler.SyncInput();
 
-    // UI
-    UiSystem.Process(this);
-
-    RenderThreadProcessing = false;
     MainThreadProcessing = true;
     RenderThreadMutex.unlock();
 
@@ -221,8 +243,12 @@ void AWorld::ProcessSystemsRenderThread()
     {
         lambda();
     }
-
     RenderThreadCallQueueAsync.clear();
+
+    // UI
+    UiSystem.Process(this);
+
+    RenderThreadProcessing = false;
 
     ProfilerRenderThread->Process(this);
     EndDrawing();
@@ -250,8 +276,15 @@ void AWorld::SyncEntities()
 
     RenderThreadMutex.lock();
     MainThreadProcessing = true;
+    while (MainUsingRenderProxies2 == RenderUsingRenderProxies2)
+    {
+        std::this_thread::sleep_for(std::chrono::microseconds(1));
+    }
+    MainUsingRenderProxies2 = !MainUsingRenderProxies2;
     RenderThreadMutex.unlock();
 
+    static AWorld* world = this;
+    DO_PROFILE("AWorld::SyncEntities", RED);
     // Process object creation queue
     IsProcessingObjectCreationQueue = true;
     for (auto& command : ObjectCreateCommandsQueue)
@@ -362,41 +395,17 @@ void AWorld::ForEntitiesWithComponents(const ComponentBitset& componentMask,
 
     if (parallel)
     {
-        ATask& task = TaskScheduler.GetNewTask();
-        task.StartIndex = start;
-        task.EndIndex = end;
-        // min range is the minimum number of objects that should be processed
-        // by a single thread
-        if (end - start < 128)
-        {
-            task.MinRange = 128;
-        }
-        else
-        {
-            task.MinRange = (end - start) / TaskScheduler.GetWorkerCount();
-        }
-        task.TaskContext = this;
-        task.Task = [lambda, componentMask, this](int32_t startIndex,
-                                                  int32_t endIndex,
-                                                  uint32_t workerIndex,
-                                                  void* context)
-        {
-            const AEntity* entities =
-                (const AEntity*)GetObjectsByNameRaw(entityName);
-
-            for (int i = startIndex; i < endIndex; i++)
-            {
-                AEntity* entity = const_cast<AEntity*>(&entities[i]);
-
-                if (entity->_isAlive &&
-                    entity->HasComponentsByMask(componentMask))
-                {
-                    lambda(entity);
-                }
-            }
-        };
-        TaskScheduler.AddTask(&task);
-        TaskScheduler.WaitforAllTasks();
+        std::for_each(std::execution::par, entities + start, entities + end,
+                      [lambda, componentMask, this](const AEntity& entity)
+                        {
+                            AEntity* ent = const_cast<AEntity*>(&entity);
+    
+                            if (ent->_isAlive &&
+                                ent->HasComponentsByMask(componentMask))
+                            {
+                                lambda(ent);
+                            }
+                        });
     }
     else
     {
@@ -473,5 +482,6 @@ void AWorld::OnShutdown()
 {
     MainThreadProcessing = false;
     RenderThreadProcessing = false;
+    MainUsingRenderProxies2 = !RenderUsingRenderProxies2;
 }
 }

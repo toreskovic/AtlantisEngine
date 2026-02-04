@@ -96,7 +96,7 @@ namespace Atlantis
             return std::operator<<(os, name.GetOrAddName(name.Hash));
         }
 
-        bool IsValid()
+        bool IsValid() const
         {
             return Hash > 0;
         }
@@ -162,6 +162,11 @@ namespace Atlantis
             Address = other.Address;
             ResourcePath = other.ResourcePath;
             ResourceHolder = other.ResourceHolder;
+        }
+
+        bool IsValid() const
+        {
+            return const_cast<AResourceHandle*>(this)->GetPtr() != nullptr;
         }
 
         void* GetPtr();

@@ -223,7 +223,7 @@ struct ColorPanelHSV
 //////////////////////////////////////////////
 typedef std::variant<
 //    WindowBox,
-//    GroupBox,
+    GroupBox,
 //    Line,
     Panel,
 //    TabBar,

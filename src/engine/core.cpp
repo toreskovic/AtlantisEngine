@@ -176,8 +176,16 @@ void AEntity::AddComponent(AComponent* component)
         ComponentNames.begin(), ComponentNames.end(), componentName);
     int index = std::distance(ComponentNames.begin(), it);
 
-    Components.insert(Components.begin() + index, component);
-    ComponentNames.insert(it, componentName);
+    if(it == ComponentNames.end())
+    {
+        Components.push_back(component);
+        ComponentNames.push_back(componentName);
+    }
+    else
+    {
+        Components.insert(Components.begin() + index, component);
+        ComponentNames.insert(it, componentName);
+    }
 
     _componentMask = World->GetComponentMaskForComponents(ComponentNames);
 

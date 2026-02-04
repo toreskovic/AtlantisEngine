@@ -59,16 +59,17 @@ extern "C"
         _renderer->Labels.insert("Render");
         World->RegisterSystem(_renderer, { "EndRender" });
 
-        _uiSystem = new SUiSystem();
-        //_uiSystem = &World->UiSystem;
-        World->RegisterSystem(_uiSystem, { "EndRender" });
+        _uiSystem = &World->UiSystem;
 
-        World->ResourceHolder.LoadGuiStyle("Assets/styles/jungle/style_jungle.rgs");
+        World->ResourceHolder.LoadGuiStyle("Assets/styles/cyber/style_cyber.rgs");
 
         auto* screen = _uiSystem->AddScreen(AUiScreen{});
 
-        auto *panel = screen->AddElement(
+        auto *panelBg = screen->AddElement(
             {Rectangle{ 64 - 16, 64 - 16, 300, 100 }, "", DummyRec{}});
+
+        auto *panel = screen->AddElement(
+            {Rectangle{ 64 - 16, 64 - 16, 300, 100 }, "", GroupBox{}});
 
         auto* btn = screen->AddElement(
             {Rectangle{ 1920 - 300 - 64, 128, 300, 50 }, "Test Button", Button{}});
