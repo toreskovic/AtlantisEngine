@@ -83,6 +83,45 @@ void AWorld::MarkRenderProxyDirty(size_t uid)
     DirtyRenderProxyIds.push_back(uid);
 }
 
+void AWorld::UpdateSystemViewsForEntity(AEntity* entity,
+                                        const ComponentBitset& oldMask,
+                                        const ComponentBitset& newMask)
+{
+    if (entity == nullptr)
+    {
+        return;
+    }
+
+    for (auto& entry : SystemViews)
+    {
+        const ComponentBitset& viewMask = entry.first;
+        bool oldMatches = (oldMask & viewMask) == viewMask;
+        bool newMatches = (newMask & viewMask) == viewMask;
+        if (oldMatches == newMatches)
+        {
+            continue;
+        }
+
+        ISystemViewBase* view = entry.second.get();
+        if (newMatches)
+        {
+            view->AddEntity(entity);
+        }
+        else
+        {
+            view->RemoveEntity(entity);
+        }
+    }
+}
+
+void AWorld::RefreshSystemViews()
+{
+    for (auto& entry : SystemViews)
+    {
+        entry.second->RefreshPointers(this);
+    }
+}
+
 std::vector<ARenderProxy2DHigh>& AWorld::GetMainRenderProxiesHigh()
 {
     return RenderUsingRenderProxies2.load() ? RenderProxies2DHigh : RenderProxies2DHigh2;
@@ -496,12 +535,25 @@ void AWorld::ForEntitiesWithComponents(const ComponentBitset& componentMask,
                                        bool parallel,
                                        ASystem* system)
 {
-    static const AName entityName = "AEntity";
-    const AEntity* entities = (const AEntity*)GetObjectsByNameRaw(entityName);
-    const size_t entityCount = GetObjectCountByType(entityName);
+    const AEntity* entities = nullptr;
+    size_t entityCount = 0;
+    const std::vector<AEntity*>* viewEntities = nullptr;
+
+    auto viewIt = SystemViews.find(componentMask);
+    if (viewIt != SystemViews.end())
+    {
+        viewEntities = &viewIt->second->GetEntities();
+        entityCount = viewEntities->size();
+    }
+    else
+    {
+        static const AName entityName = "AEntity";
+        entities = (const AEntity*)GetObjectsByNameRaw(entityName);
+        entityCount = GetObjectCountByType(entityName);
+    }
 
     int start = 0;
-    int end = entityCount;
+    int end = static_cast<int>(entityCount);
 
     if (system != nullptr && system->IsTimesliced)
     {
@@ -521,27 +573,57 @@ void AWorld::ForEntitiesWithComponents(const ComponentBitset& componentMask,
 
     if (parallel)
     {
-        std::for_each(std::execution::par, entities + start, entities + end,
-                      [lambda, componentMask, this](const AEntity& entity)
-                        {
-                            AEntity* ent = const_cast<AEntity*>(&entity);
-    
-                            if (ent->_isAlive &&
-                                ent->HasComponentsByMask(componentMask))
-                            {
-                                lambda(ent);
-                            }
-                        });
+        if (viewEntities != nullptr)
+        {
+            std::for_each(std::execution::par,
+                          viewEntities->begin() + start,
+                          viewEntities->begin() + end,
+                          [lambda](AEntity* entity)
+                          {
+                              if (entity != nullptr)
+                              {
+                                  lambda(entity);
+                              }
+                          });
+        }
+        else
+        {
+            std::for_each(std::execution::par, entities + start, entities + end,
+                          [lambda, componentMask](const AEntity& entity)
+                          {
+                              AEntity* ent = const_cast<AEntity*>(&entity);
+
+                              if (ent->_isAlive &&
+                                  ent->HasComponentsByMask(componentMask))
+                              {
+                                  lambda(ent);
+                              }
+                          });
+        }
     }
     else
     {
-        for (int i = start; i < end; i++)
+        if (viewEntities != nullptr)
         {
-            AEntity* entity = const_cast<AEntity*>(&entities[i]);
-
-            if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
+            for (int i = start; i < end; i++)
             {
-                lambda(entity);
+                AEntity* entity = (*viewEntities)[i];
+                if (entity != nullptr)
+                {
+                    lambda(entity);
+                }
+            }
+        }
+        else
+        {
+            for (int i = start; i < end; i++)
+            {
+                AEntity* entity = const_cast<AEntity*>(&entities[i]);
+
+                if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
+                {
+                    lambda(entity);
+                }
             }
         }
     }
@@ -574,6 +656,7 @@ void AWorld::Clear()
     DeadObjects.clear();
     Systems.clear();
     SystemsRenderThread.clear();
+    SystemViews.clear();
     ObjectCreateCommandsQueue.clear();
     ObjectDestroyQueue.clear();
     ObjectModifyQueue.clear();

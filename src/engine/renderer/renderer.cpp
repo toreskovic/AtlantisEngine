@@ -510,79 +510,171 @@ void SRenderer::RenderAllEntities(AWorld* world)
     std::vector<ARenderProxy2DMid>& renderProxiesMid = world->GetRenderProxiesMid();
     std::vector<ARenderProxy2DMeta>& renderProxiesMeta = world->GetRenderProxiesMeta();
 
-    CRenderable* renderComponents = (CRenderable*)world->GetObjectsByNameRaw("CRenderable");
-
     std::vector<size_t> midDirtyIds;
     std::vector<size_t> lowDirtyIds;
 
-    const size_t workerCount = std::max<size_t>(1, std::thread::hardware_concurrency());
-    std::vector<std::vector<size_t>> midDirtyBuckets(workerCount);
-
-    std::atomic<size_t> nextBucketIndex = 0;
-    auto getBucketIndex = [&]()
+    ASystemView<CPosition, CRenderable, CColor>* view =
+        world->GetSystemView<CPosition, CRenderable, CColor>();
+    if (view == nullptr)
     {
-        static thread_local size_t bucketIndex = std::numeric_limits<size_t>::max();
-        if (bucketIndex == std::numeric_limits<size_t>::max())
+        CRenderable* renderComponents =
+            (CRenderable*)world->GetObjectsByNameRaw("CRenderable");
+        const size_t workerCount = std::max<size_t>(1, std::thread::hardware_concurrency());
+        std::vector<std::vector<size_t>> midDirtyBuckets(workerCount);
+
+        std::atomic<size_t> nextBucketIndex = 0;
+        auto getBucketIndex = [&]()
         {
-            size_t assigned = nextBucketIndex.fetch_add(1, std::memory_order_relaxed);
-            bucketIndex = assigned % workerCount;
-        }
-        return bucketIndex;
-    };
-
-    std::for_each(std::execution::par, renderProxiesMeta.begin(), renderProxiesMeta.end(),
-    [&](ARenderProxy2DMeta& meta)
-    {
-        if (meta.uid == std::numeric_limits<size_t>::max())
-        {
-            return;
-        }
-
-        size_t uid = meta.uid;
-        if (uid >= renderProxiesHigh.size())
-        {
-            return;
-        }
-
-        // get the renderable component for this proxy, its uid matches the proxy's uid
-        CRenderable& renderable = renderComponents[uid];
-
-        if(meta.textureResourceAddress == nullptr)
-        {
-            meta.textureResourceAddress = (Texture2D*)renderable.textureHandle.GetPtr();
-        }
-
-        if (renderable.Owner != nullptr)
-        {
-            const CPosition* position = renderable.Owner->GetComponentOfType<CPosition>();
-            const CColor* color = renderable.Owner->GetComponentOfType<CColor>();
-
-            if (position != nullptr)
+            static thread_local size_t bucketIndex = std::numeric_limits<size_t>::max();
+            if (bucketIndex == std::numeric_limits<size_t>::max())
             {
-                renderProxiesHigh[uid].position = { position->x, position->y };
+                size_t assigned = nextBucketIndex.fetch_add(1, std::memory_order_relaxed);
+                bucketIndex = assigned % workerCount;
+            }
+            return bucketIndex;
+        };
+
+        std::for_each(std::execution::par, renderProxiesMeta.begin(), renderProxiesMeta.end(),
+        [&](ARenderProxy2DMeta& meta)
+        {
+            if (meta.uid == std::numeric_limits<size_t>::max())
+            {
+                return;
             }
 
-            if (color != nullptr)
+            size_t uid = meta.uid;
+            if (uid >= renderProxiesHigh.size())
             {
-                Color newColor = color->col;
-                Color& currentColor = renderProxiesMid[uid].color;
-                if (currentColor.r != newColor.r ||
-                    currentColor.g != newColor.g ||
-                    currentColor.b != newColor.b ||
-                    currentColor.a != newColor.a)
+                return;
+            }
+
+            CRenderable& renderable = renderComponents[uid];
+            if (meta.textureResourceAddress == nullptr)
+            {
+                meta.textureResourceAddress =
+                    (Texture2D*)renderable.textureHandle.GetPtr();
+            }
+
+            if (renderable.Owner != nullptr)
+            {
+                const CPosition* position =
+                    renderable.Owner->GetComponentOfType<CPosition>();
+                const CColor* color =
+                    renderable.Owner->GetComponentOfType<CColor>();
+
+                if (position != nullptr)
                 {
-                    currentColor = newColor;
-                    midDirtyBuckets[getBucketIndex()].push_back(uid);
+                    renderProxiesHigh[uid].position =
+                        { position->x, position->y };
+                }
+
+                if (color != nullptr)
+                {
+                    Color newColor = color->col;
+                    Color& currentColor = renderProxiesMid[uid].color;
+                    if (currentColor.r != newColor.r ||
+                        currentColor.g != newColor.g ||
+                        currentColor.b != newColor.b ||
+                        currentColor.a != newColor.a)
+                    {
+                        currentColor = newColor;
+                        midDirtyBuckets[getBucketIndex()].push_back(uid);
+                    }
                 }
             }
-        }
-    });
+        });
 
-    for (std::vector<size_t>& bucket : midDirtyBuckets)
-    {
-        if (!bucket.empty())
+        for (std::vector<size_t>& bucket : midDirtyBuckets)
         {
-            midDirtyIds.insert(midDirtyIds.end(), bucket.begin(), bucket.end());
+            if (!bucket.empty())
+            {
+                midDirtyIds.insert(midDirtyIds.end(), bucket.begin(), bucket.end());
+            }
+        }
+    }
+    else
+    {
+        std::vector<AEntity*>& viewEntities = view->Entities;
+        std::vector<size_t>& viewIndices = view->Indices;
+        std::vector<CPosition*>& viewPositions =
+            view->GetComponentVector<CPosition>();
+        std::vector<CRenderable*>& viewRenderables =
+            view->GetComponentVector<CRenderable>();
+        std::vector<CColor*>& viewColors =
+            view->GetComponentVector<CColor>();
+
+        const size_t workerCount = std::max<size_t>(1, std::thread::hardware_concurrency());
+        std::vector<std::vector<size_t>> midDirtyBuckets(workerCount);
+
+        std::atomic<size_t> nextBucketIndex = 0;
+        auto getBucketIndex = [&]()
+        {
+            static thread_local size_t bucketIndex = std::numeric_limits<size_t>::max();
+            if (bucketIndex == std::numeric_limits<size_t>::max())
+            {
+                size_t assigned = nextBucketIndex.fetch_add(1, std::memory_order_relaxed);
+                bucketIndex = assigned % workerCount;
+            }
+            return bucketIndex;
+        };
+
+        std::for_each(std::execution::par, viewIndices.begin(), viewIndices.end(),
+        [&](size_t viewIndex)
+        {
+            AEntity* entity = viewEntities[viewIndex];
+            if (entity == nullptr)
+            {
+                return;
+            }
+
+            size_t uid = entity->_uid;
+            if (uid >= renderProxiesHigh.size() ||
+                uid >= renderProxiesMid.size() ||
+                uid >= renderProxiesMeta.size())
+            {
+                return;
+            }
+
+            CPosition* position = viewPositions[viewIndex];
+            CRenderable* renderable = viewRenderables[viewIndex];
+            CColor* color = viewColors[viewIndex];
+            if (position == nullptr || renderable == nullptr || color == nullptr)
+            {
+                return;
+            }
+
+            ARenderProxy2DMeta& meta = renderProxiesMeta[uid];
+            if (meta.uid == std::numeric_limits<size_t>::max())
+            {
+                meta.uid = uid;
+            }
+
+            if (meta.textureResourceAddress == nullptr)
+            {
+                meta.textureResourceAddress =
+                    (Texture2D*)renderable->textureHandle.GetPtr();
+            }
+
+            renderProxiesHigh[uid].position = { position->x, position->y };
+
+            Color newColor = color->col;
+            Color& currentColor = renderProxiesMid[uid].color;
+            if (currentColor.r != newColor.r ||
+                currentColor.g != newColor.g ||
+                currentColor.b != newColor.b ||
+                currentColor.a != newColor.a)
+            {
+                currentColor = newColor;
+                midDirtyBuckets[getBucketIndex()].push_back(uid);
+            }
+        });
+
+        for (std::vector<size_t>& bucket : midDirtyBuckets)
+        {
+            if (!bucket.empty())
+            {
+                midDirtyIds.insert(midDirtyIds.end(), bucket.begin(), bucket.end());
+            }
         }
     }
 

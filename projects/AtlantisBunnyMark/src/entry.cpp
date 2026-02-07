@@ -59,6 +59,9 @@ extern "C"
         _renderer->Labels.insert("Render");
         World->RegisterSystem(_renderer, { "EndRender" });
 
+        World->RegisterSystemView<CPosition, CRenderable, CColor>();
+        World->RegisterSystemView<CPosition, CVelocity>();
+
         _uiSystem = &World->UiSystem;
 
         World->ResourceHolder.LoadGuiStyle("Assets/styles/cyber/style_cyber.rgs");
@@ -138,13 +141,13 @@ extern "C"
                     pos->x += vel->x * world->GetDeltaTime();
                     pos->y += vel->y * world->GetDeltaTime();
 
-                    if (((pos->x + 16) > 1920) ||
-                        ((pos->x + 16) < 0))
+                    if (((pos->x + 16) > 1920 + 64) ||
+                        ((pos->x + 16) < 0 -64))
                     {
                         vel->x *= -1;
                     }
-                    if (((pos->y + 16) > 1080) ||
-                        ((pos->y + 16 - 40) < 0))
+                    if (((pos->y + 16) > 1080 + 64) ||
+                        ((pos->y + 16 - 40) < 0 - 64))
                     {
                         vel->y *= -1;
                     }

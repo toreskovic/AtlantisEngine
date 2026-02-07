@@ -133,6 +133,8 @@ void AComponent::MarkObjectDead()
 
 void AEntity::MarkObjectDead()
 {
+    ComponentBitset oldMask = _componentMask;
+
     // remove all components from entity
     for (AComponent* component : Components)
     {
@@ -143,6 +145,11 @@ void AEntity::MarkObjectDead()
     ComponentNames.clear();
 
     _componentMask.reset();
+
+    if (World != nullptr)
+    {
+        World->UpdateSystemViewsForEntity(this, oldMask, _componentMask);
+    }
 
     AObject::MarkObjectDead();
 }
@@ -171,6 +178,7 @@ AComponent* AEntity::GetComponentOfType(const AName& name) const
 
 void AEntity::AddComponent(AComponent* component)
 {
+    ComponentBitset oldMask = _componentMask;
     AName componentName = component->GetClassData().Name;
     auto it = std::lower_bound(
         ComponentNames.begin(), ComponentNames.end(), componentName);
@@ -189,6 +197,11 @@ void AEntity::AddComponent(AComponent* component)
 
     _componentMask = World->GetComponentMaskForComponents(ComponentNames);
 
+    if (World != nullptr)
+    {
+        World->UpdateSystemViewsForEntity(this, oldMask, _componentMask);
+    }
+
     component->OnAddedToEntity(this);
 }
 
@@ -198,10 +211,16 @@ void AEntity::RemoveComponent(AComponent* component)
     {
         if (Components[i] == component)
         {
+            ComponentBitset oldMask = _componentMask;
             Components.erase(Components.begin() + i);
             ComponentNames.erase(ComponentNames.begin() + i);
             _componentMask =
                 World->GetComponentMaskForComponents(ComponentNames);
+
+            if (World != nullptr)
+            {
+                World->UpdateSystemViewsForEntity(this, oldMask, _componentMask);
+            }
 
             component->OnRemovedFromEntity(this);
             break;

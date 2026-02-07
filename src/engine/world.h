@@ -16,12 +16,15 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <execution>
 #include <set>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace Atlantis
@@ -50,6 +53,161 @@ void OnCreated(T* t, bool firstTime = false) { t->OnCreated(firstTime); }
 template <typename T, std::enable_if_t<!has_oncreated<T>::value, int> = 0>
 void OnCreated(T*, bool firstTime = false) { /* ... */ }
 
+// views operate on entities with specific components, hold separate lists for entity and each component
+struct ISystemViewBase
+{
+    virtual ~ISystemViewBase() = default;
+    virtual void AddEntity(AEntity* entity) = 0;
+    virtual void RemoveEntity(AEntity* entity) = 0;
+    virtual void RefreshPointers(AWorld* world) = 0;
+    virtual const std::vector<AEntity*>& GetEntities() const = 0;
+};
+
+template<typename... Types>
+struct ASystemView : public ISystemViewBase
+{
+    std::vector<size_t> Indices;
+    std::vector<AEntity*> Entities;
+    std::tuple<std::vector<Types*>...> ComponentVectors;
+    std::unordered_map<size_t, size_t> EntityIndexById;
+
+    template<typename C>
+    std::vector<C*>& GetComponentVector()
+    {
+        return std::get<std::vector<C*>>(ComponentVectors);
+    }
+
+    void AddEntity(AEntity* entity) override
+    {
+        if (entity == nullptr)
+        {
+            return;
+        }
+
+        size_t uid = entity->_uid;
+        if (EntityIndexById.contains(uid))
+        {
+            return;
+        }
+
+        size_t index = Entities.size();
+        Entities.push_back(entity);
+        Indices.push_back(index);
+        EntityIndexById.emplace(uid, index);
+        AddComponents(entity, std::index_sequence_for<Types...>{});
+    }
+
+    void RemoveEntity(AEntity* entity) override
+    {
+        if (entity == nullptr)
+        {
+            return;
+        }
+
+        auto it = EntityIndexById.find(entity->_uid);
+        if (it == EntityIndexById.end())
+        {
+            return;
+        }
+
+        size_t index = it->second;
+        size_t last = Entities.size() - 1;
+        if (index != last)
+        {
+            Entities[index] = Entities[last];
+            Indices[index] = Indices[last];
+            SwapComponents(index, last, std::index_sequence_for<Types...>{});
+
+            AEntity* swappedEntity = Entities[index];
+            if (swappedEntity != nullptr)
+            {
+                EntityIndexById[swappedEntity->_uid] = index;
+            }
+        }
+
+        Entities.pop_back();
+        Indices.pop_back();
+        PopComponents(std::index_sequence_for<Types...>{});
+        EntityIndexById.erase(it);
+    }
+
+    void RefreshPointers(AWorld* world) override
+    {
+        if (world == nullptr)
+        {
+            return;
+        }
+
+        const AName entityType = AEntity::GetClassDataStatic().Name;
+        for (const auto& entry : EntityIndexById)
+        {
+            size_t uid = entry.first;
+            size_t index = entry.second;
+            Entities[index] = static_cast<AEntity*>(
+                AObjPtrHelper::GetPtr(entityType, uid, world));
+        }
+
+        ResizeComponents(Entities.size(), std::index_sequence_for<Types...>{});
+        RefreshComponents(std::index_sequence_for<Types...>{});
+    }
+
+    const std::vector<AEntity*>& GetEntities() const override
+    {
+        return Entities;
+    }
+
+private:
+    template<size_t... Indices>
+    void AddComponents(AEntity* entity, std::index_sequence<Indices...>)
+    {
+           (std::get<Indices>(ComponentVectors).push_back(
+               entity->GetComponentOfType<std::tuple_element_t<Indices, std::tuple<Types...>>>()),
+         ...);
+    }
+
+    template<size_t... Indices>
+    void ResizeComponents(size_t size, std::index_sequence<Indices...>)
+    {
+        (std::get<Indices>(ComponentVectors).resize(size), ...);
+    }
+
+    template<size_t... Indices>
+    void RefreshComponents(std::index_sequence<Indices...>)
+    {
+        for (size_t i = 0; i < Entities.size(); ++i)
+        {
+            AEntity* entity = Entities[i];
+            if (entity == nullptr)
+            {
+                (void)std::initializer_list<int>{
+                    (std::get<Indices>(ComponentVectors)[i] = nullptr, 0)...
+                };
+                continue;
+            }
+
+            (void)std::initializer_list<int>{
+                (std::get<Indices>(ComponentVectors)[i] =
+                     entity->GetComponentOfType<std::tuple_element_t<Indices, std::tuple<Types...>>>(),
+                 0)...
+            };
+        }
+    }
+
+    template<size_t... Indices>
+    void SwapComponents(size_t a, size_t b, std::index_sequence<Indices...>)
+    {
+        (std::swap(std::get<Indices>(ComponentVectors)[a],
+                   std::get<Indices>(ComponentVectors)[b]),
+         ...);
+    }
+
+    template<size_t... Indices>
+    void PopComponents(std::index_sequence<Indices...>)
+    {
+        (std::get<Indices>(ComponentVectors).pop_back(), ...);
+    }
+};
+
 struct AWorld
 {
     std::map<AName, AClassData, ANameComparer> CData;
@@ -75,6 +233,9 @@ struct AWorld
     std::vector<std::function<void()>> RenderThreadCallQueueAsync;
     std::mutex RenderThreadCallQueueAsyncMutex;
     std::vector<size_t> DirtyRenderProxyIds;
+
+    // system views, mapped by component mask
+    std::unordered_map<ComponentBitset, std::unique_ptr<ISystemViewBase>> SystemViews;
 
     AResourceHolder ResourceHolder = AResourceHolder(this);
     AInputHandler InputHandler;
@@ -160,7 +321,7 @@ struct AWorld
     template<typename T>
     void RegisterDefault(AName name = AName::None())
     {
-        RegisterDefault<T, 10000, 1000000>(name);
+        RegisterDefault<T, 2097152, 2097152>(name);
     }
 
     template<typename T>
@@ -243,6 +404,8 @@ struct AWorld
                     }
                 }
             }
+
+            RefreshSystemViews();
         }
 
         void* cpy = (void*)(allocatorHelper.Start +
@@ -355,6 +518,12 @@ struct AWorld
     std::vector<ARenderProxy2DMeta>& GetMainRenderProxiesMeta();
     std::vector<ARenderProxy2DMeta>& GetRenderProxiesMeta();
 
+    void UpdateSystemViewsForEntity(AEntity* entity,
+                                    const ComponentBitset& oldMask,
+                                    const ComponentBitset& newMask);
+
+    void RefreshSystemViews();
+
     float GetDeltaTime() const;
 
     double GetGameTime() const;
@@ -435,6 +604,34 @@ struct AWorld
         }
     }
 
+    // system views
+    template<typename... Types>
+    void RegisterSystemView()
+    {
+        ComponentBitset mask = GetComponentMaskForComponents<Types...>();
+        auto view = std::make_unique<ASystemView<Types...>>();
+        ASystemView<Types...>* viewPtr = view.get();
+        SystemViews[mask] = std::move(view);
+
+        const std::vector<AEntity*> entities = GetEntitiesWithComponents(mask);
+        for (AEntity* entity : entities)
+        {
+            viewPtr->AddEntity(entity);
+        }
+    }
+
+    template<typename... Types>
+    ASystemView<Types...>* GetSystemView()
+    {
+        ComponentBitset mask = GetComponentMaskForComponents<Types...>();
+        auto it = SystemViews.find(mask);
+        if (it != SystemViews.end())
+        {
+            return static_cast<ASystemView<Types...>*>(it->second.get());
+        }
+        return nullptr;
+    }
+
     void ProcessSystems();
 
     void ProcessSystemsRenderThread();
@@ -459,6 +656,20 @@ struct AWorld
 
     ComponentBitset GetComponentMaskForComponents(
         std::vector<AName> componentsNames);
+    
+    template<typename... Types>
+    ComponentBitset GetComponentMaskForComponents()
+    {
+        static std::vector<AName> names;
+        static ComponentBitset mask;
+        if (names.size() == 0)
+        {
+            GetNamesOfComponents<Types...>(names);
+            mask = GetComponentMaskForComponents(names);
+        }
+
+        return mask;
+    }
 
     size_t GetObjectCountByType(const AName& objectName);
 
@@ -611,6 +822,84 @@ struct AWorld
             shouldQueue = false;
         }
 
+        if (shouldQueue)
+        {
+            std::function<void(AEntity*)> lambdaWrapper = [lambda](AEntity* entity)
+            {
+                lambda(entity,
+                       entity->GetComponentOfType<T>(),
+                       entity->GetComponentOfType<Types>()...);
+            };
+
+            QueueSystem(
+                [this, lambdaWrapper, parallel, system]() {
+                    ForEntitiesWithComponents(
+                        mask, lambdaWrapper, parallel, system);
+                });
+            return;
+        }
+
+        ASystemView<T, Types...>* view = GetSystemView<T, Types...>();
+        if (view != nullptr)
+        {
+            std::vector<AEntity*>& entities = view->Entities;
+            std::vector<T*>& vecT = view->template GetComponentVector<T>();
+
+            int start = 0;
+            int end = static_cast<int>(entities.size());
+            if (system != nullptr && system->IsTimesliced)
+            {
+                start = system->CurrentObjectIndex;
+                end = start + system->ObjectsPerFrame;
+
+                if (end > static_cast<int>(entities.size()))
+                {
+                    end = static_cast<int>(entities.size());
+                    system->CurrentObjectIndex = 0;
+                }
+                else
+                {
+                    system->CurrentObjectIndex = end;
+                }
+            }
+
+            auto invokeAt = [&](size_t index)
+            {
+                lambda(entities[index],
+                       vecT[index],
+                       view->template GetComponentVector<Types>()[index]...);
+            };
+
+            if (parallel)
+            {
+                std::vector<size_t> indices;
+                if (system != nullptr && system->IsTimesliced)
+                {
+                    indices.reserve(end - start);
+                    for (int i = start; i < end; ++i)
+                    {
+                        indices.push_back(static_cast<size_t>(i));
+                    }
+                }
+                else
+                {
+                    indices = view->Indices;
+                }
+
+                std::for_each(std::execution::par, indices.begin(), indices.end(),
+                              [&](size_t index) { invokeAt(index); });
+            }
+            else
+            {
+                for (int i = start; i < end; ++i)
+                {
+                    invokeAt(static_cast<size_t>(i));
+                }
+            }
+
+            return;
+        }
+
         std::function<void(AEntity*)> lambdaWrapper = [lambda](AEntity* entity)
         {
             lambda(entity,
@@ -618,18 +907,7 @@ struct AWorld
                    entity->GetComponentOfType<Types>()...);
         };
 
-        if (shouldQueue)
-        {
-            QueueSystem(
-                [this, lambdaWrapper, parallel, system]() {
-                    ForEntitiesWithComponents(
-                        mask, lambdaWrapper, parallel, system);
-                });
-        }
-        else
-        {
-            ForEntitiesWithComponents(mask, lambdaWrapper, parallel, system);
-        }
+        ForEntitiesWithComponents(mask, lambdaWrapper, parallel, system);
     }
 
     template<typename FunType>
