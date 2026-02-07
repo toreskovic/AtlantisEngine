@@ -1,8 +1,11 @@
 #include "renderer.h"
 #include "engine/profiling.h"
 #include "engine/world.h"
+#include <algorithm>
 #include <iostream>
 #include <raylib.h>
+#include <thread>
+#include <utility>
 #include <rlgl.h>
 #include <raymath.h>
 #include <external/glad.h>
@@ -10,22 +13,22 @@
 
 namespace Atlantis
 {
-    struct ProxyVectorHelper
-    {
-        std::vector<ARenderProxy2D> vector;
-
-        size_t actualSize = 0;
-    };
-
 void CRenderable::OnAddedToEntity(AEntity* entity)
 {
-    std::vector<ARenderProxy2D>& proxies = World->GetMainRenderProxies();
-    if (_uid >= proxies.size())
+    std::vector<ARenderProxy2DHigh>& proxiesHigh = World->GetMainRenderProxiesHigh();
+    std::vector<ARenderProxy2DMid>& proxiesMid = World->GetMainRenderProxiesMid();
+    std::vector<ARenderProxy2DLow>& proxiesLow = World->GetMainRenderProxiesLow();
+    std::vector<ARenderProxy2DMeta>& proxiesMeta = World->GetMainRenderProxiesMeta();
+    if (_uid >= proxiesHigh.size())
     {
-        proxies.resize(_uid + 1);
+        size_t newSize = _uid + 1;
+        proxiesHigh.resize(newSize);
+        proxiesMid.resize(newSize);
+        proxiesLow.resize(newSize);
+        proxiesMeta.resize(newSize);
     }
-    proxies[_uid]._uid = _uid;
-    proxies[_uid].zoom = scaleX;
+    proxiesMeta[_uid].uid = _uid;
+    proxiesHigh[_uid].zoom = scaleX;
     World->MarkRenderProxyDirty(_uid);
 
     AComponent::OnAddedToEntity(entity);
@@ -49,16 +52,24 @@ void CRenderable::OnCreated(bool firstTime)
         // add render proxy to the world
         if (World != nullptr)
         {
-            ARenderProxy2D proxy;
-            proxy.position = {0.0f, 0.0f};
-            proxy.color = WHITE;
-            proxy.textureIndex = 0; // will be set in the renderer
-            proxy.rotation = rotation;
-            proxy.zoom = 0.0f;
-            proxy.pivot = {pivotX, pivotY};
-            proxy._uid = _uid;
+            ARenderProxy2DHigh proxyHigh;
+            proxyHigh.position = {0.0f, 0.0f};
+            proxyHigh.rotation = rotation;
+            proxyHigh.zoom = 0.0f;
 
-            World->AddRenderProxy(proxy);
+            ARenderProxy2DMid proxyMid;
+            proxyMid.color = WHITE;
+            proxyMid.textureIndex = 0; // will be set in the renderer
+
+            ARenderProxy2DLow proxyLow;
+            proxyLow.pivot = {pivotX, pivotY};
+            proxyLow.colorOverrideFactor = 0;
+
+            ARenderProxy2DMeta proxyMeta;
+            proxyMeta.uid = _uid;
+            proxyMeta.textureResourceAddress = nullptr;
+
+            World->AddRenderProxy(proxyHigh, proxyMid, proxyLow, proxyMeta);
         }
     }
 }
@@ -83,6 +94,48 @@ static inline uint16_t PackUnorm16(float x) {
 static inline uint8_t PackUnorm8(float x) {
     x = std::max(0.0f, std::min(1.0f, x));
     return (uint8_t)std::lroundf(x * 255.0f);
+}
+
+static void UploadDirtyRanges(GLuint buffer,
+                              const void* data,
+                              size_t elementSize,
+                              const std::vector<size_t>& dirtyIds)
+{
+    if (dirtyIds.empty())
+    {
+        return;
+    }
+
+    std::vector<size_t> sortedIds = dirtyIds;
+    std::sort(sortedIds.begin(), sortedIds.end());
+    sortedIds.erase(std::unique(sortedIds.begin(), sortedIds.end()), sortedIds.end());
+
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+
+    size_t rangeStart = sortedIds.front();
+    size_t rangeEnd = rangeStart;
+    for (size_t i = 1; i < sortedIds.size(); ++i)
+    {
+        size_t id = sortedIds[i];
+        if (id == rangeEnd + 1)
+        {
+            rangeEnd = id;
+            continue;
+        }
+
+        GLsizeiptr offset = static_cast<GLsizeiptr>(rangeStart * elementSize);
+        GLsizeiptr size = static_cast<GLsizeiptr>((rangeEnd - rangeStart + 1) * elementSize);
+        const char* src = static_cast<const char*>(data) + offset;
+        glBufferSubData(GL_ARRAY_BUFFER, offset, size, src);
+
+        rangeStart = id;
+        rangeEnd = id;
+    }
+
+    GLsizeiptr offset = static_cast<GLsizeiptr>(rangeStart * elementSize);
+    GLsizeiptr size = static_cast<GLsizeiptr>((rangeEnd - rangeStart + 1) * elementSize);
+    const char* src = static_cast<const char*>(data) + offset;
+    glBufferSubData(GL_ARRAY_BUFFER, offset, size, src);
 }
 
 struct VirtualViewport
@@ -126,8 +179,12 @@ static inline VirtualViewport ComputeVirtualViewport(const CCamera* camera,
 }
 
 // the following is used for indirect rendering
-void RenderEntitiesInternal(const RenderTexture2D& atlasTexture, 
-                             const std::vector<ARenderProxy2D>& entityData,
+void RenderEntitiesInternal(const RenderTexture2D& atlasTexture,
+                             const std::vector<ARenderProxy2DHigh>& entityDataHigh,
+                             const std::vector<ARenderProxy2DMid>& entityDataMid,
+                             const std::vector<ARenderProxy2DLow>& entityDataLow,
+                             const std::vector<size_t>& midDirtyIds,
+                             const std::vector<size_t>& lowDirtyIds,
                              const std::vector<TextureData>& textureData,
                              float cameraZoom,
                              float cameraX,
@@ -248,7 +305,9 @@ void main() {
         GLuint baseInstance;
     };
 
-    static GLuint vao = 0, vbo, instanceVbo, indirectBuffer, textureSSBO;
+    static GLuint vao = 0, vbo, instanceVboHigh, instanceVboMid, instanceVboLow, indirectBuffer, textureSSBO;
+    static GLsizeiptr midBufferSize = 0;
+    static GLsizeiptr lowBufferSize = 0;
     if (vao == 0)
     {
         // Vertex Array and Vertex Buffer for unit quad
@@ -268,50 +327,53 @@ void main() {
         glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
         glEnableVertexAttribArray(1);
 
-        // Instance buffer (for position, scale, rotation)
-        glGenBuffers(1, &instanceVbo);
-        glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
-        // glBufferData(GL_ARRAY_BUFFER, entityData.size() * sizeof(ARenderProxy2D), entityData.data(), GL_DYNAMIC_DRAW);
-
+        // Instance buffer (high frequency)
+        glGenBuffers(1, &instanceVboHigh);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVboHigh);
         glBufferData(GL_ARRAY_BUFFER, 1, nullptr, GL_STREAM_DRAW);
-        // glBufferData(GL_ARRAY_BUFFER, entityData.size() * sizeof(ARenderProxy2D), nullptr, GL_STREAM_DRAW);
-        // glBufferSubData(GL_ARRAY_BUFFER, 0, entityData.size() * sizeof(ARenderProxy2D), entityData.data());
 
         // Position (vec2)
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, position));
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2DHigh), (void*)offsetof(ARenderProxy2DHigh, position));
         glEnableVertexAttribArray(2);
         glVertexAttribDivisor(2, 1);  // One per instance
 
-        // Color (vec4)
-        glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, color));
-        glEnableVertexAttribArray(3);
-        glVertexAttribDivisor(3, 1);  // One per instance
-
-        // Texture id (uint)
-        glVertexAttribIPointer(4, 1, GL_UNSIGNED_SHORT, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, textureIndex));
-        glEnableVertexAttribArray(4);
-        glVertexAttribDivisor(4, 1);  // One per instance
-
         // rotation (float)
-        glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, rotation));
-        // glVertexAttribPointer(5, 1, GL_SHORT, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, rotation));
+        glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2DHigh), (void*)offsetof(ARenderProxy2DHigh, rotation));
         glEnableVertexAttribArray(5);
         glVertexAttribDivisor(5, 1);  // One per instance
 
         // zoom (float)
-        glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, zoom));
-        // glVertexAttribPointer(6, 1, GL_SHORT, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, zoom));
+        glVertexAttribPointer(6, 1, GL_FLOAT, GL_FALSE, sizeof(ARenderProxy2DHigh), (void*)offsetof(ARenderProxy2DHigh, zoom));
         glEnableVertexAttribArray(6);
         glVertexAttribDivisor(6, 1);  // One per instance
 
+        // Instance buffer (mid frequency)
+        glGenBuffers(1, &instanceVboMid);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVboMid);
+        glBufferData(GL_ARRAY_BUFFER, 1, nullptr, GL_STREAM_DRAW);
+
+        // Color (vec4)
+        glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ARenderProxy2DMid), (void*)offsetof(ARenderProxy2DMid, color));
+        glEnableVertexAttribArray(3);
+        glVertexAttribDivisor(3, 1);  // One per instance
+
+        // Texture id (uint)
+        glVertexAttribIPointer(4, 1, GL_UNSIGNED_INT, sizeof(ARenderProxy2DMid), (void*)offsetof(ARenderProxy2DMid, textureIndex));
+        glEnableVertexAttribArray(4);
+        glVertexAttribDivisor(4, 1);  // One per instance
+
+        // Instance buffer (low frequency)
+        glGenBuffers(1, &instanceVboLow);
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVboLow);
+        glBufferData(GL_ARRAY_BUFFER, 1, nullptr, GL_STREAM_DRAW);
+
         // pivot (vec2)
-        glVertexAttribPointer(7, 2, GL_FLOAT, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, pivot));
-        // glVertexAttribPointer(7, 2, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, pivot));
+        glVertexAttribPointer(7, 2, GL_FLOAT, GL_TRUE, sizeof(ARenderProxy2DLow), (void*)offsetof(ARenderProxy2DLow, pivot));
         glEnableVertexAttribArray(7);
         glVertexAttribDivisor(7, 1);  // One per instance
 
         // color override factor (float)
-        glVertexAttribPointer(8, 1, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ARenderProxy2D), (void*)offsetof(ARenderProxy2D, colorOverrideFactor));
+        glVertexAttribPointer(8, 1, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(ARenderProxy2DLow), (void*)offsetof(ARenderProxy2DLow, colorOverrideFactor));
         glEnableVertexAttribArray(8);
         glVertexAttribDivisor(8, 1);  // One per instance
 
@@ -331,10 +393,36 @@ void main() {
 
     glBindVertexArray(vao);
     
-    glBindBuffer(GL_ARRAY_BUFFER, instanceVbo);
-    GLsizeiptr instanceBufferSize = entityData.size() * sizeof(ARenderProxy2D);
-    glBufferData(GL_ARRAY_BUFFER, instanceBufferSize, nullptr, GL_STREAM_DRAW); // orphan
-    if (instanceBufferSize) glBufferSubData(GL_ARRAY_BUFFER, 0, instanceBufferSize, entityData.data());
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVboHigh);
+    GLsizeiptr highBufferSize = entityDataHigh.size() * sizeof(ARenderProxy2DHigh);
+    glBufferData(GL_ARRAY_BUFFER, highBufferSize, nullptr, GL_STREAM_DRAW); // orphan
+    if (highBufferSize) glBufferSubData(GL_ARRAY_BUFFER, 0, highBufferSize, entityDataHigh.data());
+
+    GLsizeiptr expectedMidSize = entityDataMid.size() * sizeof(ARenderProxy2DMid);
+    if (expectedMidSize != midBufferSize)
+    {
+        midBufferSize = expectedMidSize;
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVboMid);
+        glBufferData(GL_ARRAY_BUFFER, midBufferSize, nullptr, GL_STREAM_DRAW); // orphan
+        if (midBufferSize) glBufferSubData(GL_ARRAY_BUFFER, 0, midBufferSize, entityDataMid.data());
+    }
+    else
+    {
+        UploadDirtyRanges(instanceVboMid, entityDataMid.data(), sizeof(ARenderProxy2DMid), midDirtyIds);
+    }
+
+    GLsizeiptr expectedLowSize = entityDataLow.size() * sizeof(ARenderProxy2DLow);
+    if (expectedLowSize != lowBufferSize)
+    {
+        lowBufferSize = expectedLowSize;
+        glBindBuffer(GL_ARRAY_BUFFER, instanceVboLow);
+        glBufferData(GL_ARRAY_BUFFER, lowBufferSize, nullptr, GL_STREAM_DRAW); // orphan
+        if (lowBufferSize) glBufferSubData(GL_ARRAY_BUFFER, 0, lowBufferSize, entityDataLow.data());
+    }
+    else
+    {
+        UploadDirtyRanges(instanceVboLow, entityDataLow.data(), sizeof(ARenderProxy2DLow), lowDirtyIds);
+    }
 
     // Orphan + upload texture SSBO (cold-ish, but still easy)
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, textureSSBO);
@@ -359,7 +447,7 @@ void main() {
         GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_BUFFER_BIT);
     if (cmdPtr) {
         cmdPtr->count = 6; // 6 verts for strip
-        cmdPtr->instanceCount = (GLuint)entityData.size();
+        cmdPtr->instanceCount = (GLuint)entityDataHigh.size();
         cmdPtr->first = 0;
         cmdPtr->baseInstance = 0;
         glUnmapBuffer(GL_DRAW_INDIRECT_BUFFER);
@@ -418,28 +506,50 @@ void SRenderer::RenderAllEntities(AWorld* world)
 
     static RenderTexture2D atlasTexture = LoadRenderTexture(16384, 16384);
 
-    std::vector<ARenderProxy2D>& renderProxies = world->GetRenderProxies();
-
-    size_t startIndex = 0;
-    size_t endIndex = renderProxies.size();
+    std::vector<ARenderProxy2DHigh>& renderProxiesHigh = world->GetRenderProxiesHigh();
+    std::vector<ARenderProxy2DMid>& renderProxiesMid = world->GetRenderProxiesMid();
+    std::vector<ARenderProxy2DMeta>& renderProxiesMeta = world->GetRenderProxiesMeta();
 
     CRenderable* renderComponents = (CRenderable*)world->GetObjectsByNameRaw("CRenderable");
-    size_t renderComponentCount = world->GetObjectCountByType("CRenderable");
 
-    std::for_each(std::execution::par, renderProxies.begin(), renderProxies.end(),
-    [&](ARenderProxy2D& proxy)
+    std::vector<size_t> midDirtyIds;
+    std::vector<size_t> lowDirtyIds;
+
+    const size_t workerCount = std::max<size_t>(1, std::thread::hardware_concurrency());
+    std::vector<std::vector<size_t>> midDirtyBuckets(workerCount);
+
+    std::atomic<size_t> nextBucketIndex = 0;
+    auto getBucketIndex = [&]()
     {
-        if (proxy._uid == std::numeric_limits<size_t>::max())
+        static thread_local size_t bucketIndex = std::numeric_limits<size_t>::max();
+        if (bucketIndex == std::numeric_limits<size_t>::max())
+        {
+            size_t assigned = nextBucketIndex.fetch_add(1, std::memory_order_relaxed);
+            bucketIndex = assigned % workerCount;
+        }
+        return bucketIndex;
+    };
+
+    std::for_each(std::execution::par, renderProxiesMeta.begin(), renderProxiesMeta.end(),
+    [&](ARenderProxy2DMeta& meta)
+    {
+        if (meta.uid == std::numeric_limits<size_t>::max())
+        {
+            return;
+        }
+
+        size_t uid = meta.uid;
+        if (uid >= renderProxiesHigh.size())
         {
             return;
         }
 
         // get the renderable component for this proxy, its uid matches the proxy's uid
-        CRenderable& renderable = renderComponents[proxy._uid];
+        CRenderable& renderable = renderComponents[uid];
 
-        if(proxy._textureResourceAddress == nullptr)
+        if(meta.textureResourceAddress == nullptr)
         {
-            proxy._textureResourceAddress = (Texture2D*)renderable.textureHandle.GetPtr();
+            meta.textureResourceAddress = (Texture2D*)renderable.textureHandle.GetPtr();
         }
 
         if (renderable.Owner != nullptr)
@@ -449,15 +559,81 @@ void SRenderer::RenderAllEntities(AWorld* world)
 
             if (position != nullptr)
             {
-                proxy.position = { position->x, position->y };
+                renderProxiesHigh[uid].position = { position->x, position->y };
             }
 
             if (color != nullptr)
             {
-                proxy.color = color->col;
+                Color newColor = color->col;
+                Color& currentColor = renderProxiesMid[uid].color;
+                if (currentColor.r != newColor.r ||
+                    currentColor.g != newColor.g ||
+                    currentColor.b != newColor.b ||
+                    currentColor.a != newColor.a)
+                {
+                    currentColor = newColor;
+                    midDirtyBuckets[getBucketIndex()].push_back(uid);
+                }
             }
         }
     });
+
+    for (std::vector<size_t>& bucket : midDirtyBuckets)
+    {
+        if (!bucket.empty())
+        {
+            midDirtyIds.insert(midDirtyIds.end(), bucket.begin(), bucket.end());
+        }
+    }
+
+    // NOTE: Single-threaded dirty list version kept for reference.
+    // for (size_t i = 0; i < renderProxiesMeta.size(); ++i)
+    // {
+    //     ARenderProxy2DMeta& meta = renderProxiesMeta[i];
+    //     if (meta.uid == std::numeric_limits<size_t>::max())
+    //     {
+    //         continue;
+    //     }
+    //
+    //     size_t uid = meta.uid;
+    //     if (uid >= renderProxiesHigh.size())
+    //     {
+    //         continue;
+    //     }
+    //
+    //     // get the renderable component for this proxy, its uid matches the proxy's uid
+    //     CRenderable& renderable = renderComponents[uid];
+    //
+    //     if(meta.textureResourceAddress == nullptr)
+    //     {
+    //         meta.textureResourceAddress = (Texture2D*)renderable.textureHandle.GetPtr();
+    //     }
+    //
+    //     if (renderable.Owner != nullptr)
+    //     {
+    //         const CPosition* position = renderable.Owner->GetComponentOfType<CPosition>();
+    //         const CColor* color = renderable.Owner->GetComponentOfType<CColor>();
+    //
+    //         if (position != nullptr)
+    //         {
+    //             renderProxiesHigh[uid].position = { position->x, position->y };
+    //         }
+    //
+    //         if (color != nullptr)
+    //         {
+    //             Color newColor = color->col;
+    //             Color& currentColor = renderProxiesMid[uid].color;
+    //             if (currentColor.r != newColor.r ||
+    //                 currentColor.g != newColor.g ||
+    //                 currentColor.b != newColor.b ||
+    //                 currentColor.a != newColor.a)
+    //             {
+    //                 currentColor = newColor;
+    //                 midDirtyIds.push_back(uid);
+    //             }
+    //         }
+    //     }
+    // }
 
     // get camera
     float Zoom = 1.0f;
@@ -495,7 +671,13 @@ void SRenderer::RenderAllEntities(AWorld* world)
         camY = 1080 / 2;
     }
 
-    world->QueueRenderThreadCallAsync([world, Zoom, viewport, camX, camY]()
+    world->QueueRenderThreadCallAsync([world,
+                                       Zoom,
+                                       viewport,
+                                       camX,
+                                       camY,
+                                       midDirtyIds = std::move(midDirtyIds),
+                                       lowDirtyIds = std::move(lowDirtyIds)]() mutable
     {
         DO_PROFILE("SRenderer::RenderEntitiesInternal", DARKBLUE);
         // clear the atlas texture
@@ -525,9 +707,18 @@ void SRenderer::RenderAllEntities(AWorld* world)
 
         textureData.clear();
 
-        std::vector<ARenderProxy2D>& renderProxies = world->GetRenderProxies();
-        for (ARenderProxy2D& proxy : renderProxies)
+        std::vector<ARenderProxy2DHigh>& renderProxiesHigh = world->GetRenderProxiesHigh();
+        std::vector<ARenderProxy2DMid>& renderProxiesMid = world->GetRenderProxiesMid();
+        std::vector<ARenderProxy2DLow>& renderProxiesLow = world->GetRenderProxiesLow();
+        std::vector<ARenderProxy2DMeta>& renderProxiesMeta = world->GetRenderProxiesMeta();
+        for (size_t i = 0; i < renderProxiesMeta.size(); i++)
         {
+            ARenderProxy2DMeta& meta = renderProxiesMeta[i];
+            if (meta.uid == std::numeric_limits<size_t>::max())
+            {
+                continue;
+            }
+
             // keep world-space position; camera scaling happens in vertex shader
             // auto x = proxy.position.x;
             // auto y = proxy.position.y;
@@ -540,7 +731,7 @@ void SRenderer::RenderAllEntities(AWorld* world)
             //     continue;
             // }
 
-            ATextureResource* tex = (ATextureResource*)proxy._textureResourceAddress;
+            ATextureResource* tex = (ATextureResource*)meta.textureResourceAddress;
             if (tex != nullptr)
             {
                 // ARenderProxy2D tmpData{
@@ -577,15 +768,23 @@ void SRenderer::RenderAllEntities(AWorld* world)
                     textureIndex = textureData.size() - 1;
                 }
 
-                // proxy.position = { x, y };
-                proxy.textureIndex = textureIndex;
+                ARenderProxy2DMid& proxyMid = renderProxiesMid[i];
+                if (proxyMid.textureIndex != textureIndex)
+                {
+                    proxyMid.textureIndex = textureIndex;
+                    midDirtyIds.push_back(i);
+                }
             }
         }
 
         EndTextureMode();
 
         RenderEntitiesInternal(atlasTexture,
-                               renderProxies,
+                               renderProxiesHigh,
+                               renderProxiesMid,
+                               renderProxiesLow,
+                               midDirtyIds,
+                               lowDirtyIds,
                                textureData,
                                Zoom,
                                (float)camX,
@@ -678,8 +877,6 @@ void SRenderer::PrepareAtlasTexture(AWorld* world, RenderTexture2D& atlasTexture
         }
 
         CRenderable* ren = e->GetComponentOfType<CRenderable>();
-        CPosition* pos = e->GetComponentOfType<CPosition>();
-        CColor* col = e->GetComponentOfType<CColor>();
 
         // scale using zoom
         // auto x = (pos->x - halfWidth) * Zoom + halfWidth - camX * Zoom;
@@ -722,40 +919,15 @@ void SRenderer::PrepareAtlasTexture(AWorld* world, RenderTexture2D& atlasTexture
 
 bool SRenderer::RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std::vector<TextureData> textureData, std::vector<size_t> entitiesIds, bool overrideColor, Color color)
 {
-    static std::vector<ARenderProxy2D> entityData;
-
-    // get camera
-    float Zoom = 1.0f;
-    int windowWidth = GetScreenWidth();
-    int windowHeight = GetScreenHeight();
-
-    int camX = 0;
-    int camY = 0;
+    (void)atlasTexture;
+    (void)overrideColor;
+    (void)color;
 
     bool needsAtlasRefresh = false;
-
-    const CCamera* camera = nullptr;
-    auto& cameras = world->GetEntitiesWithComponents<CCamera, CPosition>();
-    if (cameras.size() > 0)
-    {
-        CCamera* cam = cameras[0]->GetComponentOfType<CCamera>();
-        CPosition* pos = cameras[0]->GetComponentOfType<CPosition>();
-        camera = cam;
-        Zoom = cam->Zoom;
-        camX = pos->x;
-        camY = pos->y;
-    }
-
-    VirtualViewport viewport = ComputeVirtualViewport(camera, windowWidth, windowHeight);
-    float halfWidth = viewport.width * 0.5f;
-    float halfHeight = viewport.height * 0.5f;
 
     static const ComponentBitset componentMask =
         world->GetComponentMaskForComponents(
             { "CRenderable", "CPosition", "CColor" });
-
-    entityData.clear();
-    entityData.reserve(entitiesIds.size());
 
     static const AName entityName = "AEntity";
     const size_t entityCount = world->GetObjectCountByType(entityName);
@@ -774,51 +946,25 @@ bool SRenderer::RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std
         CPosition* pos = e->GetComponentOfType<CPosition>();
         CColor* col = e->GetComponentOfType<CColor>();
 
-        // scale using zoom
-        float x = (pos->x - halfWidth) * Zoom + halfWidth - camX * Zoom;
-        float y = (pos->y - halfHeight) * Zoom + halfHeight - camY * Zoom;
-
         ATextureResource* tex = ren->textureHandle.get<ATextureResource>();
         if (tex != nullptr)
         {
-            ARenderProxy2D tmpData{
-                { x, y }, col->col, tex->Texture.id, ren->rotation, Zoom, { ren->pivotX, ren->pivotY }, 0
-            };
-
-            if (overrideColor)
-            {
-                // tmpData.color = color;
-                tmpData.colorOverrideFactor = 1;
-            }
-
             bool foundTexture = false;
             for (size_t texIdx = 0; texIdx < textureData.size(); texIdx++)
             {
                 if (textureData[texIdx].textureId == tex->Texture.id)
                 {
                     foundTexture = true;
-                    tmpData.textureIndex = texIdx;
                     break;
                 }
             }
 
-            if (foundTexture)
-            {
-                entityData.push_back(tmpData);
-            }
-            else
+            if (!foundTexture)
             {
                 needsAtlasRefresh = true;
             }
         }
     }
-
-
-    // world->QueueRenderThreadCallAsync([atlasTexture, textureData]()
-    // {
-        // RenderEntitiesInternal(atlasTexture, entityData, textureData);
-    // });
-    // RenderEntitiesInternal(atlasTexture, entityData, textureData);
     return !needsAtlasRefresh;
 }
 

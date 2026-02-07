@@ -327,18 +327,33 @@ struct AWorld
 
     void QueueObjectDeletion(AObjPtr<AObject> object);
 
-    std::vector<ARenderProxy2D> RenderProxies2D;
-    std::vector<ARenderProxy2D> RenderProxies2D2;
+    std::vector<ARenderProxy2DHigh> RenderProxies2DHigh;
+    std::vector<ARenderProxy2DHigh> RenderProxies2DHigh2;
+    std::vector<ARenderProxy2DMid> RenderProxies2DMid;
+    std::vector<ARenderProxy2DMid> RenderProxies2DMid2;
+    std::vector<ARenderProxy2DLow> RenderProxies2DLow;
+    std::vector<ARenderProxy2DLow> RenderProxies2DLow2;
+    std::vector<ARenderProxy2DMeta> RenderProxies2DMeta;
+    std::vector<ARenderProxy2DMeta> RenderProxies2DMeta2;
     std::atomic<bool> RenderUsingRenderProxies2 = true;
 
-    size_t AddRenderProxy(const ARenderProxy2D& proxy);
+    size_t AddRenderProxy(const ARenderProxy2DHigh& high,
+                          const ARenderProxy2DMid& mid,
+                          const ARenderProxy2DLow& low,
+                          const ARenderProxy2DMeta& meta);
 
     void RemoveRenderProxy(size_t uid);
 
     void MarkRenderProxyDirty(size_t uid);
 
-    std::vector<ARenderProxy2D>& GetMainRenderProxies();
-    std::vector<ARenderProxy2D>& GetRenderProxies();
+    std::vector<ARenderProxy2DHigh>& GetMainRenderProxiesHigh();
+    std::vector<ARenderProxy2DHigh>& GetRenderProxiesHigh();
+    std::vector<ARenderProxy2DMid>& GetMainRenderProxiesMid();
+    std::vector<ARenderProxy2DMid>& GetRenderProxiesMid();
+    std::vector<ARenderProxy2DLow>& GetMainRenderProxiesLow();
+    std::vector<ARenderProxy2DLow>& GetRenderProxiesLow();
+    std::vector<ARenderProxy2DMeta>& GetMainRenderProxiesMeta();
+    std::vector<ARenderProxy2DMeta>& GetRenderProxiesMeta();
 
     float GetDeltaTime() const;
 

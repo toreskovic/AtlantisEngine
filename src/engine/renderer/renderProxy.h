@@ -1,6 +1,9 @@
 #ifndef RENDER_PROXY_H
 #define RENDER_PROXY_H
 
+#include <cstddef>
+#include <limits>
+
 namespace Atlantis
 {
     enum class ERenderProxyType
@@ -15,60 +18,31 @@ namespace Atlantis
         ERenderProxyType Type = ERenderProxyType::NONE;
     };
 
-    struct ARenderProxy2D
+    struct ARenderProxy2DHigh
     {
-        // temp
-        typedef unsigned int GLuint;
-
-        // data for rendering
         Vector2 position;
-        Color color;
-        GLuint textureIndex;
         float rotation = 0.0f;
         float zoom = 1.0f;
+    };
+
+    struct ARenderProxy2DMid
+    {
+        typedef unsigned int GLuint;
+
+        Color color;
+        GLuint textureIndex = 0;
+    };
+
+    struct ARenderProxy2DLow
+    {
         Vector2 pivot = { 0.5f, 0.5f };
         uint8_t colorOverrideFactor = 0;
-        // end data for rendering
+    };
 
-        // housekeeping
-        size_t _uid;
-        Texture2D* _textureResourceAddress = nullptr;
-
-        ARenderProxy2D() = default;
-
-        ARenderProxy2D(Vector2 pos, Color col, GLuint texIdx, float rot, float zm, Vector2 piv, uint8_t colorOverride) :
-            position(pos),
-            color(col),
-            textureIndex(texIdx),
-            rotation(rot),
-            zoom(zm),
-            pivot(piv),
-            colorOverrideFactor(colorOverride)
-        {
-        }
-
-        ARenderProxy2D(const ARenderProxy2D& other) :
-            position(other.position),
-            color(other.color),
-            textureIndex(other.textureIndex),
-            rotation(other.rotation),
-            zoom(other.zoom),
-            pivot(other.pivot),
-            colorOverrideFactor(other.colorOverrideFactor),
-            _uid(other._uid),
-            _textureResourceAddress(other._textureResourceAddress)
-        {
-        }
-
-        bool operator==(const ARenderProxy2D& other) const
-        {
-            return other._uid == _uid;
-        }
-
-        bool operator!=(const ARenderProxy2D& other) const
-        {
-            return other._uid != _uid;
-        }
+    struct ARenderProxy2DMeta
+    {
+        size_t uid = std::numeric_limits<size_t>::max();
+        Texture2D* textureResourceAddress = nullptr;
     };
 } // namespace Atlantis
 

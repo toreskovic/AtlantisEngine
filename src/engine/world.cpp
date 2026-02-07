@@ -36,30 +36,45 @@ void AWorld::QueueObjectDeletion(AObjPtr<AObject> object)
     ObjectDestroyQueue.push_back(object);
 }
 
-size_t AWorld::AddRenderProxy(const ARenderProxy2D& proxy)
+size_t AWorld::AddRenderProxy(const ARenderProxy2DHigh& high,
+                              const ARenderProxy2DMid& mid,
+                              const ARenderProxy2DLow& low,
+                              const ARenderProxy2DMeta& meta)
 {
-    std::vector<ARenderProxy2D>& proxies = GetMainRenderProxies();
-    if (proxies.size() <= proxy._uid)
+    size_t uid = meta.uid;
+    std::vector<ARenderProxy2DHigh>& proxiesHigh = GetMainRenderProxiesHigh();
+    std::vector<ARenderProxy2DMid>& proxiesMid = GetMainRenderProxiesMid();
+    std::vector<ARenderProxy2DLow>& proxiesLow = GetMainRenderProxiesLow();
+    std::vector<ARenderProxy2DMeta>& proxiesMeta = GetMainRenderProxiesMeta();
+    if (proxiesHigh.size() <= uid)
     {
         // temp hardcoded increment, should probably use the reserved space for render components
-        proxies.resize(proxy._uid + 10000);
+        size_t newSize = uid + 10000;
+        proxiesHigh.resize(newSize);
+        proxiesMid.resize(newSize);
+        proxiesLow.resize(newSize);
+        proxiesMeta.resize(newSize);
     }
-    proxies[proxy._uid] = proxy;
-    MarkRenderProxyDirty(proxy._uid);
-    return proxy._uid;
+    proxiesHigh[uid] = high;
+    proxiesMid[uid] = mid;
+    proxiesLow[uid] = low;
+    proxiesMeta[uid] = meta;
+    MarkRenderProxyDirty(uid);
+    return uid;
 }
 
 void AWorld::RemoveRenderProxy(size_t uid)
 {
-    std::vector<ARenderProxy2D>& proxies = GetMainRenderProxies();
-    if (uid >= proxies.size())
+    std::vector<ARenderProxy2DHigh>& proxiesHigh = GetMainRenderProxiesHigh();
+    std::vector<ARenderProxy2DMeta>& proxiesMeta = GetMainRenderProxiesMeta();
+    if (uid >= proxiesHigh.size())
     {
         return;
     }
 
-    ARenderProxy2D& proxy = proxies[uid];
-    proxy._uid = std::numeric_limits<size_t>::max();
-    proxy.zoom = 0.0f;
+    proxiesHigh[uid].zoom = 0.0f;
+    proxiesMeta[uid].uid = std::numeric_limits<size_t>::max();
+    proxiesMeta[uid].textureResourceAddress = nullptr;
     MarkRenderProxyDirty(uid);
 }
 
@@ -68,14 +83,44 @@ void AWorld::MarkRenderProxyDirty(size_t uid)
     DirtyRenderProxyIds.push_back(uid);
 }
 
-std::vector<ARenderProxy2D>& AWorld::GetMainRenderProxies()
+std::vector<ARenderProxy2DHigh>& AWorld::GetMainRenderProxiesHigh()
 {
-    return RenderUsingRenderProxies2.load() ? RenderProxies2D : RenderProxies2D2;
+    return RenderUsingRenderProxies2.load() ? RenderProxies2DHigh : RenderProxies2DHigh2;
 }
 
-std::vector<ARenderProxy2D>& AWorld::GetRenderProxies()
+std::vector<ARenderProxy2DHigh>& AWorld::GetRenderProxiesHigh()
 {
-    return RenderUsingRenderProxies2.load() ? RenderProxies2D2 : RenderProxies2D;
+    return RenderUsingRenderProxies2.load() ? RenderProxies2DHigh2 : RenderProxies2DHigh;
+}
+
+std::vector<ARenderProxy2DMid>& AWorld::GetMainRenderProxiesMid()
+{
+    return RenderUsingRenderProxies2.load() ? RenderProxies2DMid : RenderProxies2DMid2;
+}
+
+std::vector<ARenderProxy2DMid>& AWorld::GetRenderProxiesMid()
+{
+    return RenderUsingRenderProxies2.load() ? RenderProxies2DMid2 : RenderProxies2DMid;
+}
+
+std::vector<ARenderProxy2DLow>& AWorld::GetMainRenderProxiesLow()
+{
+    return RenderUsingRenderProxies2.load() ? RenderProxies2DLow : RenderProxies2DLow2;
+}
+
+std::vector<ARenderProxy2DLow>& AWorld::GetRenderProxiesLow()
+{
+    return RenderUsingRenderProxies2.load() ? RenderProxies2DLow2 : RenderProxies2DLow;
+}
+
+std::vector<ARenderProxy2DMeta>& AWorld::GetMainRenderProxiesMeta()
+{
+    return RenderUsingRenderProxies2.load() ? RenderProxies2DMeta : RenderProxies2DMeta2;
+}
+
+std::vector<ARenderProxy2DMeta>& AWorld::GetRenderProxiesMeta()
+{
+    return RenderUsingRenderProxies2.load() ? RenderProxies2DMeta2 : RenderProxies2DMeta;
 }
 
 float AWorld::GetDeltaTime() const
@@ -355,18 +400,31 @@ void AWorld::SyncEntities()
         command();
     }
 
-    std::vector<ARenderProxy2D>& mainProxies = GetMainRenderProxies();
-    std::vector<ARenderProxy2D>& renderProxies = GetRenderProxies();
-    if (renderProxies.size() < mainProxies.size())
+    std::vector<ARenderProxy2DHigh>& mainHigh = GetMainRenderProxiesHigh();
+    std::vector<ARenderProxy2DMid>& mainMid = GetMainRenderProxiesMid();
+    std::vector<ARenderProxy2DLow>& mainLow = GetMainRenderProxiesLow();
+    std::vector<ARenderProxy2DMeta>& mainMeta = GetMainRenderProxiesMeta();
+    std::vector<ARenderProxy2DHigh>& renderHigh = GetRenderProxiesHigh();
+    std::vector<ARenderProxy2DMid>& renderMid = GetRenderProxiesMid();
+    std::vector<ARenderProxy2DLow>& renderLow = GetRenderProxiesLow();
+    std::vector<ARenderProxy2DMeta>& renderMeta = GetRenderProxiesMeta();
+    if (renderHigh.size() < mainHigh.size())
     {
-        renderProxies.resize(mainProxies.size());
+        size_t newSize = mainHigh.size();
+        renderHigh.resize(newSize);
+        renderMid.resize(newSize);
+        renderLow.resize(newSize);
+        renderMeta.resize(newSize);
     }
 
     for (size_t uid : DirtyRenderProxyIds)
     {
-        if (uid < mainProxies.size())
+        if (uid < mainHigh.size())
         {
-            renderProxies[uid] = mainProxies[uid];
+            renderHigh[uid] = mainHigh[uid];
+            renderMid[uid] = mainMid[uid];
+            renderLow[uid] = mainLow[uid];
+            renderMeta[uid] = mainMeta[uid];
         }
     }
 
@@ -527,6 +585,14 @@ void AWorld::Clear()
     }
 
     AllocatorHelpers.clear();
+    RenderProxies2DHigh.clear();
+    RenderProxies2DHigh2.clear();
+    RenderProxies2DMid.clear();
+    RenderProxies2DMid2.clear();
+    RenderProxies2DLow.clear();
+    RenderProxies2DLow2.clear();
+    RenderProxies2DMeta.clear();
+    RenderProxies2DMeta2.clear();
     RenderThreadMutex.unlock();
 }
 
