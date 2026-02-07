@@ -3,11 +3,27 @@ cmake_minimum_required(VERSION 3.11) # FetchContent is available in 3.11+
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 20)
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=thin")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto=thin")
+option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(ENABLE_LTO "Enable LTO/IPO" ON)
+
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+set(ASAN_OPTIONS "detect_odr_violation=0")
+
+if (ENABLE_ASAN)
+    set(ENABLE_LTO OFF)
+    add_compile_options(-fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -fno-optimize-sibling-calls)
+    add_link_options(-fsanitize=address -fsanitize=undefined)
+endif()
+
+if (ENABLE_LTO)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+    add_compile_options(-flto=thin)
+    add_link_options(-flto=thin)
+else()
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION FALSE)
+endif()
 
 include(box2d.cmake)
 
