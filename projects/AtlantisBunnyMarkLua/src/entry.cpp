@@ -2,7 +2,7 @@
 #include "game.h"
 #include "engine/core.h"
 #include "engine/reflection/reflectionHelpers.h"
-#include "engine/core.h"
+#include "engine/world.h"
 #include "engine/renderer/renderer.h"
 #include "timer.h"
 #include "fmt/core.h"
@@ -17,6 +17,7 @@ using namespace Atlantis;
 
 AWorld* World = nullptr;
 SRenderer* _renderer = nullptr;
+SUiSystem* _uiSystem = nullptr;
 
 extern "C" {
 
@@ -34,49 +35,70 @@ extern "C" {
         _renderer->Labels.insert("Render");
         World->RegisterSystem(_renderer, {"EndRender"});
 
-        World->RegisterSystemRenderThread([](AWorld *world)
-                                    {
-            static auto timer = Timer(1000);
+        _uiSystem = &World->UiSystem;
+
+        World->ResourceHolder.LoadGuiStyle("Assets/styles/cyber/style_cyber.rgs");
+
+        auto* screen = _uiSystem->AddScreen(AUiScreen{});
+
+        auto *panelBg = screen->AddElement(
+            {Rectangle{ 64 - 16 - 8, 64 - 16 - 8, 300 + 16, 100 + 16 }, "", DummyRec{}});
+
+        auto *panel = screen->AddElement(
+            {Rectangle{ 64 - 16, 64 - 16, 300, 100 }, "", GroupBox{}});
+        panel->Text = "Stats";
+
+        auto* btn = screen->AddElement(
+            {Rectangle{ 1920 - 300 - 64, 128, 300, 50 }, "Test Button", Button{}});
+        btn->anchorX = 1.0f;
+
+        btn->OnClick = [](UIElement* e)
+        {
+            e->Text = "Clicked!";
+        };
+
+        static float fps = 0.0f;
+
+        auto* label = screen->AddElement(
+            {Rectangle{ 64, 64, 300, 32 }, "FPS", Label{}});
+        
+        label->OnPreDraw = [](UIElement* e)
+        {
+            static auto timer = Timer(100);
             static float fpsAggregator = 0.0f;
             static int fpsCounter = 0;
-            static float fps = 0;
 
-            fpsAggregator += 1.0f / GetFrameTime();
+            fpsAggregator += 1.0f / World->GetDeltaTime();
             fpsCounter++;
             if (timer())
             {
-                fps = fpsAggregator / fpsCounter;
+                float currentFps = fpsAggregator / fpsCounter;
+                fps = fps * 0.7f + currentFps * 0.3f;
 
                 fpsAggregator = 0.0f;
                 fpsCounter = 0;
-                timer = Timer(1000);
+                timer = Timer(100);
             }
 
             auto fpsStr = fmt::format("FPS: {:.2f}", fps);
-            int fontSize = 20;
-            int textSize = MeasureText(fpsStr.c_str(), fontSize);
 
-            // count entities that are alive
-            auto entities = world->GetEntitiesWithComponents<CPosition, CRenderable>();
-            int count = 0;
-            for (AEntity *e : entities)
-            {
-                if (e->_isAlive)
-                {
-                    count++;
-                }
-            }
+            e->Text = fpsStr;
+            return true;
+        };
+
+        auto* label2 = screen->AddElement(
+            {Rectangle{ 64, 64 + 32, 300, 32 }, "Bunnies", Label{}});
+        
+        label2->OnPreDraw = [](UIElement* e)
+        {
+            static const AName entityType = AName("AEntity");
+            size_t count = World->GetObjectCountByType(entityType);
 
             auto bunnyStr = fmt::format("Bunnies: {}", count);
-            textSize = std::max(textSize, MeasureText(bunnyStr.c_str(), fontSize));
 
-            Color bg = DARKGRAY;
-            bg.a = 150;
-
-            DrawRectangle(0, 0, textSize + 30, fontSize * 2 + 30, bg);
-            DrawText(fpsStr.c_str(), 10, 10, fontSize, LIGHTGRAY);
-            DrawText(bunnyStr.c_str(), 10, 30, fontSize, LIGHTGRAY); },
-                                    {"DebugInfo"}, {"EndRender"});
+            e->Text = bunnyStr;
+            return true;
+        };
     }
 
     LIB_EXPORT void Unload()

@@ -89,9 +89,6 @@ extern "C"
         auto* label = screen->AddElement(
             {Rectangle{ 64, 64, 300, 32 }, "FPS", Label{}});
         
-        // panel is not valid here
-        //screen->AnchorElementToElement(label, panel);
-
         label->OnPreDraw = [](UIElement* e)
         {
             static auto timer = Timer(100);
@@ -118,9 +115,6 @@ extern "C"
 
         auto* label2 = screen->AddElement(
             {Rectangle{ 64, 64 + 32, 300, 32 }, "Bunnies", Label{}});
-        
-        // panel is not valid here
-        //screen->AnchorElementToElement(label2, panel);
         
         label2->OnPreDraw = [](UIElement* e)
         {
@@ -159,7 +153,7 @@ extern "C"
         World->RegisterSystem(
             [](AWorld* world)
             {
-                if (fps > 60.0f)
+                if (fps > 61.0f)
                 {
                     for (int i = 0; i < 200; i++)
                     {
@@ -173,13 +167,13 @@ extern "C"
         World->RegisterSystem(
             [](AWorld* world)
             {
-                if (fps < 60.0f)
+                if (fps < 59.0f)
                 {
                     int count = 0;
-                    for (AEntity* e :
-                         world->GetEntitiesWithComponents<CPosition,
-                                                          CRenderable>())
+                    const std::vector<AEntity*> entities = world->GetEntitiesWithComponents<CPosition, CRenderable>();
+                    for (size_t i = entities.size(); i > 1; i--)
                     {
+                        AEntity* e = entities[i-1];
                         if (count >= 50)
                         {
                             break;
