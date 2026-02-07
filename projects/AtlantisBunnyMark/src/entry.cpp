@@ -138,12 +138,12 @@ extern "C"
                     pos->x += vel->x * world->GetDeltaTime();
                     pos->y += vel->y * world->GetDeltaTime();
 
-                    if (((pos->x + 16) > GetScreenWidth()) ||
+                    if (((pos->x + 16) > 1920) ||
                         ((pos->x + 16) < 0))
                     {
                         vel->x *= -1;
                     }
-                    if (((pos->y + 16) > GetScreenHeight()) ||
+                    if (((pos->y + 16) > 1080) ||
                         ((pos->y + 16 - 40) < 0))
                     {
                         vel->y *= -1;

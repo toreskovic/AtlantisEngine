@@ -85,6 +85,46 @@ static inline uint8_t PackUnorm8(float x) {
     return (uint8_t)std::lroundf(x * 255.0f);
 }
 
+struct VirtualViewport
+{
+    float width = 0.0f;
+    float height = 0.0f;
+    float scale = 1.0f;
+};
+
+static inline VirtualViewport ComputeVirtualViewport(const CCamera* camera,
+                                                     int windowWidth,
+                                                     int windowHeight)
+{
+    int internalWidth = 1920;
+    int internalHeight = 1080;
+    if (camera != nullptr)
+    {
+        if (camera->InternalWidth > 0)
+        {
+            internalWidth = camera->InternalWidth;
+        }
+        if (camera->InternalHeight > 0)
+        {
+            internalHeight = camera->InternalHeight;
+        }
+    }
+
+    float scaleX = static_cast<float>(windowWidth) / static_cast<float>(internalWidth);
+    float scaleY = static_cast<float>(windowHeight) / static_cast<float>(internalHeight);
+    float scale = std::min(scaleX, scaleY);
+    if (scale <= 0.0f)
+    {
+        scale = 1.0f;
+    }
+
+    VirtualViewport viewport;
+    viewport.scale = scale;
+    viewport.width = static_cast<float>(windowWidth) / scale;
+    viewport.height = static_cast<float>(windowHeight) / scale;
+    return viewport;
+}
+
 // the following is used for indirect rendering
 void RenderEntitiesInternal(const RenderTexture2D& atlasTexture, 
                              const std::vector<ARenderProxy2D>& entityData,
@@ -92,8 +132,8 @@ void RenderEntitiesInternal(const RenderTexture2D& atlasTexture,
                              float cameraZoom,
                              float cameraX,
                              float cameraY,
-                             float screenWidth,
-                             float screenHeight)
+                             float virtualWidth,
+                             float virtualHeight)
 {
     static Shader shader = LoadShaderFromMemory(
         R"""(
@@ -159,7 +199,7 @@ void main() {
                     position.x * sin(instanceRotation * 3.1415 / 180.0) + position.y * cos(instanceRotation * 3.1415 / 180.0));
 
     vec2 halfScreen = screenSize * 0.5;
-    vec2 cameraAdjustedPos = (instancePos - halfScreen) * cameraZoom + halfScreen - cameraPos * cameraZoom;
+    vec2 cameraAdjustedPos = (instancePos - cameraPos) * cameraZoom + halfScreen;
     position += cameraAdjustedPos;
     
     gl_Position = projection * vec4(position, 0.0, 1.0);
@@ -331,9 +371,7 @@ void main() {
     static const GLint cameraPosLoc = GetShaderLocation(shader, "cameraPos");
     static const GLint cameraZoomLoc = GetShaderLocation(shader, "cameraZoom");
 
-    int width = GetScreenWidth();
-    int height = GetScreenHeight();
-    Matrix projection = MatrixOrtho(0, width, height, 0, -1, 1);
+    Matrix projection = MatrixOrtho(0.0f, virtualWidth, virtualHeight, 0.0f, -1.0f, 1.0f);
     projection = MatrixTranspose(projection);
 
     // glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 8, textureSSBO);
@@ -351,7 +389,7 @@ void main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, textureSSBO);
 
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection.m0);
-    glUniform2f(screenSizeLoc, screenWidth, screenHeight);
+    glUniform2f(screenSizeLoc, virtualWidth, virtualHeight);
     glUniform2f(cameraPosLoc, cameraX, cameraY);
     glUniform1f(cameraZoomLoc, cameraZoom);
 
@@ -423,20 +461,19 @@ void SRenderer::RenderAllEntities(AWorld* world)
 
     // get camera
     float Zoom = 1.0f;
-    int width = GetScreenWidth();
-    int height = GetScreenHeight();
-    int halfWidth = width / 2;
-    int halfHeight = height / 2;
+    int windowWidth = GetScreenWidth();
+    int windowHeight = GetScreenHeight();
 
     int camX = 0;
     int camY = 0;
 
     static const AName cameraComponentName("CCamera");
+    const CCamera* camera = nullptr;
     const CCamera* rawCameras = (const CCamera*)world->GetObjectsByNameRaw(cameraComponentName);
     size_t cameraCount = world->GetObjectCountByType("CCamera");
     if (cameraCount > 0)
     {
-        const CCamera* camera = (CCamera*)&rawCameras[0];
+        camera = (CCamera*)&rawCameras[0];
         Zoom = camera->Zoom;
 
         if(camera->Owner != nullptr)
@@ -450,8 +487,15 @@ void SRenderer::RenderAllEntities(AWorld* world)
         }
     }
 
+    VirtualViewport viewport = ComputeVirtualViewport(camera, windowWidth, windowHeight);
 
-    world->QueueRenderThreadCallAsync([world, Zoom, width, height, halfWidth, halfHeight, camX, camY]()
+    if(cameraCount == 0)
+    {
+        camX = 1920 / 2;
+        camY = 1080 / 2;
+    }
+
+    world->QueueRenderThreadCallAsync([world, Zoom, viewport, camX, camY]()
     {
         DO_PROFILE("SRenderer::RenderEntitiesInternal", DARKBLUE);
         // clear the atlas texture
@@ -540,7 +584,14 @@ void SRenderer::RenderAllEntities(AWorld* world)
 
         EndTextureMode();
 
-        RenderEntitiesInternal(atlasTexture, renderProxies, textureData, Zoom, (float)camX, (float)camY, (float)width, (float)height);
+        RenderEntitiesInternal(atlasTexture,
+                               renderProxies,
+                               textureData,
+                               Zoom,
+                               (float)camX,
+                               (float)camY,
+                               viewport.width,
+                               viewport.height);
     });
 }
 
@@ -675,25 +726,29 @@ bool SRenderer::RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std
 
     // get camera
     float Zoom = 1.0f;
-    int width = GetScreenWidth();
-    int height = GetScreenHeight();
-    int halfWidth = width / 2;
-    int halfHeight = height / 2;
+    int windowWidth = GetScreenWidth();
+    int windowHeight = GetScreenHeight();
 
     int camX = 0;
     int camY = 0;
 
     bool needsAtlasRefresh = false;
 
+    const CCamera* camera = nullptr;
     auto& cameras = world->GetEntitiesWithComponents<CCamera, CPosition>();
     if (cameras.size() > 0)
     {
         CCamera* cam = cameras[0]->GetComponentOfType<CCamera>();
         CPosition* pos = cameras[0]->GetComponentOfType<CPosition>();
+        camera = cam;
         Zoom = cam->Zoom;
         camX = pos->x;
         camY = pos->y;
     }
+
+    VirtualViewport viewport = ComputeVirtualViewport(camera, windowWidth, windowHeight);
+    float halfWidth = viewport.width * 0.5f;
+    float halfHeight = viewport.height * 0.5f;
 
     static const ComponentBitset componentMask =
         world->GetComponentMaskForComponents(
@@ -720,8 +775,8 @@ bool SRenderer::RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std
         CColor* col = e->GetComponentOfType<CColor>();
 
         // scale using zoom
-        auto x = (pos->x - halfWidth) * Zoom + halfWidth - camX * Zoom;
-        auto y = (pos->y - halfHeight) * Zoom + halfHeight - camY * Zoom;
+        float x = (pos->x - halfWidth) * Zoom + halfWidth - camX * Zoom;
+        float y = (pos->y - halfHeight) * Zoom + halfHeight - camY * Zoom;
 
         ATextureResource* tex = ren->textureHandle.get<ATextureResource>();
         if (tex != nullptr)

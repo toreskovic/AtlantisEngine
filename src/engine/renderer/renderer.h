@@ -127,6 +127,12 @@ namespace Atlantis
         DEF_PROPERTY();
         float Zoom = 1.0f;
 
+        DEF_PROPERTY();
+        int InternalWidth = 1920;
+
+        DEF_PROPERTY();
+        int InternalHeight = 1080;
+
         CCamera(){ _shouldBlockRenderThread = true; };
         CCamera(const CCamera &other){ _shouldBlockRenderThread = true; };
     };
