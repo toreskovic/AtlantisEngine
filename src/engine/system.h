@@ -22,7 +22,11 @@ namespace Atlantis
 
     int CurrentObjectIndex = 0;
 
+    float CompoundedDeltaTime = 0.0f;
+
     virtual void Process(AWorld *world);
+
+    float GetDeltaTime() const;
   };
 
   struct ALambdaSystem : public ASystem

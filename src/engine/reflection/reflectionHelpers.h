@@ -13,6 +13,8 @@
 
 #define DEF_PROPERTY()
 
+typedef Shader RaylibShader;
+
 namespace Atlantis
 {
     class AResourceHolder;
@@ -94,7 +96,7 @@ namespace Atlantis
             return std::operator<<(os, name.GetOrAddName(name.Hash));
         }
 
-        bool IsValid()
+        bool IsValid() const
         {
             return Hash > 0;
         }
@@ -120,6 +122,18 @@ namespace Atlantis
         }
 
         virtual ~ATextureResource() { UnloadTexture(Texture); };
+    };
+
+    struct AShaderResource : public AResource
+    {
+        RaylibShader Shader;
+
+        AShaderResource(RaylibShader shader)
+        {
+            Shader = shader;
+        }
+
+        virtual ~AShaderResource() { UnloadShader(Shader); };
     };
 
     struct AResourceHandle
@@ -148,6 +162,11 @@ namespace Atlantis
             Address = other.Address;
             ResourcePath = other.ResourcePath;
             ResourceHolder = other.ResourceHolder;
+        }
+
+        bool IsValid() const
+        {
+            return const_cast<AResourceHandle*>(this)->GetPtr() != nullptr;
         }
 
         void* GetPtr();

@@ -5,11 +5,21 @@
 
 #include "engine/reflection/reflectionHelpers.h"
 #include "engine/core.h"
+#include "engine/renderer/renderProxy.h"
 #include "engine/system.h"
 #include "./generated/renderer.gen.h"
 
 namespace Atlantis
 {
+    struct ShaderParamScalar
+    {
+        AName name;
+        float value = 0.0f;
+        int shaderLocation = -1;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ShaderParamScalar, name, value);
+
     struct CPosition : public AComponent
     {
         DEF_CLASS();
@@ -47,8 +57,39 @@ namespace Atlantis
         DEF_PROPERTY();
         int cellSize = 64;
 
+        DEF_PROPERTY();
+        bool flip = false;
+
+        DEF_PROPERTY();
+        float rotation = 0.0f;
+
+        DEF_PROPERTY();
+        float scaleX = 1.0f;
+
+        DEF_PROPERTY();
+        float scaleY = 1.0f;
+
+        DEF_PROPERTY();
+        float pivotX = 0.0f;
+
+        DEF_PROPERTY();
+        float pivotY = 0.0f;
+
+        DEF_PROPERTY();
+        AName shaderPath;
+
+        DEF_PROPERTY();
+        AResourceHandle shaderHandle;
+
+        std::vector<ShaderParamScalar> shaderParamsScalar;
+
         CRenderable() : AComponent() { _shouldBlockRenderThread = true; };
         CRenderable(const CRenderable &other){ _shouldBlockRenderThread = true; };
+
+        virtual void OnAddedToEntity(AEntity* entity) override;
+        virtual void OnRemovedFromEntity(AEntity* entity) override;
+
+        void OnCreated(bool firstTime = false);
     };
 
     struct CVelocity : public AComponent
@@ -86,8 +127,26 @@ namespace Atlantis
         DEF_PROPERTY();
         float Zoom = 1.0f;
 
+        DEF_PROPERTY();
+        int InternalWidth = 1920;
+
+        DEF_PROPERTY();
+        int InternalHeight = 1080;
+
         CCamera(){ _shouldBlockRenderThread = true; };
         CCamera(const CCamera &other){ _shouldBlockRenderThread = true; };
+    };
+
+    struct TextureData
+    {
+        // GLuint textureId;
+        unsigned int textureId;
+        int width;
+        int height;
+        int atlasX;
+        int atlasY;
+        int atlasWidth;
+        int atlasHeight;
     };
 
     struct SRenderer : public ASystem
@@ -96,6 +155,10 @@ namespace Atlantis
         {
             IsRenderSystem = true;
         }
+        
+        static void RenderAllEntities(AWorld *world);
+        static void PrepareAtlasTexture(AWorld* world, RenderTexture2D& atlasTexture, std::vector<TextureData>& textureData);
+        static bool RenderEntities(AWorld* world, RenderTexture2D& atlasTexture, std::vector<TextureData> textureData, std::vector<size_t> entitiesIds, bool overrideColor = false, Color color = WHITE);
 
         virtual void Process(AWorld *world) override;
     };

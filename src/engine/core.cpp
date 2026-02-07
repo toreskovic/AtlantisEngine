@@ -1,606 +1,381 @@
 #include "core.h"
+#include "engine/world.h"
+#include "raygui.h"
 #include "system.h"
-#include <vector>
 #include <iostream>
+#include <vector>
 
-#define SERIALIZE_PROP_HELPER(type)                            \
-    if (propData.Type == #type)                                \
-    {                                                          \
-        type prop = GetProperty<type>(propData.Name);          \
-        type defProp = cdo->GetProperty<type>(propData.Name);  \
-        propJson["Value"] = prop;                              \
-        propJson["IsDefault"] = Helper_IsEqual(prop, defProp); \
+#define SERIALIZE_PROP_HELPER(type)                                            \
+    if (propData.Type == #type)                                                \
+    {                                                                          \
+        type prop = GetProperty<type>(propData.Name);                          \
+        type defProp = cdo->GetProperty<type>(propData.Name);                  \
+        propJson["Value"] = prop;                                              \
+        propJson["IsDefault"] = Helper_IsEqual(prop, defProp);                 \
     }
 
-#define DESERIALIZE_PROP_HELPER(type)                                            \
-    if (prop["Type"].get<std::string>() == #type)							     \
-    {                                                                            \
-        SetProperty(prop["Name"].get<std::string>(), prop["Value"].get<type>()); \
+#define DESERIALIZE_PROP_HELPER(type)                                          \
+    if (prop["Type"].get<std::string>() == #type)                              \
+    {                                                                          \
+        SetProperty(prop["Name"].get<std::string>(),                           \
+                    prop["Value"].get<type>());                                \
     }
 
-// On Linux, Atlantis types in reflection data are namespaced in the form of "Atlantis::type", while on Windows, they appear as just "type"
+// On Linux, Atlantis types in reflection data are namespaced in the form of
+// "Atlantis::type", while on Windows, they appear as just "type"
 #if defined(_WIN32)
 #define SERIALIZE_PROP_HELPER_ATLANTIS(type) SERIALIZE_PROP_HELPER(type)
 #define DESERIALIZE_PROP_HELPER_ATLANTIS(type) DESERIALIZE_PROP_HELPER(type)
 #else
-#define SERIALIZE_PROP_HELPER_ATLANTIS(type) SERIALIZE_PROP_HELPER(Atlantis::type)
-#define DESERIALIZE_PROP_HELPER_ATLANTIS(type) DESERIALIZE_PROP_HELPER(Atlantis::type)
+#define SERIALIZE_PROP_HELPER_ATLANTIS(type)                                   \
+    SERIALIZE_PROP_HELPER(Atlantis::type)
+#define DESERIALIZE_PROP_HELPER_ATLANTIS(type)                                 \
+    DESERIALIZE_PROP_HELPER(Atlantis::type)
 #endif
 
 namespace Atlantis
 {
-    template <typename T>
-    bool Helper_IsEqual(const T &l, const T &r)
+template<typename T>
+bool Helper_IsEqual(const T& l, const T& r)
+{
+    return l == r;
+}
+
+template<>
+bool Helper_IsEqual(const Color& l, const Color& r)
+{
+    return l.r == r.r && l.g == r.g && l.b == r.b && l.a == r.a;
+}
+
+template<>
+bool Helper_IsEqual(const Texture2D& l, const Texture2D& r)
+{
+    return l.id == r.id;
+}
+
+void AObject::MarkObjectDead()
+{
+    if (World != nullptr)
     {
-        return l == r;
+        World->MarkObjectDead(this);
+    }
+}
+
+nlohmann::json AObject::Serialize()
+{
+    nlohmann::json json;
+    const auto& classData = GetClassData();
+
+    json["Name"] = classData.Name.GetName();
+    json["Properties"] = nlohmann::json::array({});
+    for (const auto& propData : classData.Properties)
+    {
+        nlohmann::json propJson = { { "Name", propData.Name.GetName() },
+                                    { "Type", propData.Type.GetName() },
+                                    { "Offset", propData.Offset } };
+        const AObject* cdo = World->GetCDO<AObject>(classData.Name);
+
+        SERIALIZE_PROP_HELPER(bool);
+        SERIALIZE_PROP_HELPER(int);
+        SERIALIZE_PROP_HELPER(float);
+        SERIALIZE_PROP_HELPER(double);
+        SERIALIZE_PROP_HELPER(Color);
+        SERIALIZE_PROP_HELPER(Texture2D);
+        SERIALIZE_PROP_HELPER(std::string);
+        SERIALIZE_PROP_HELPER_ATLANTIS(AName);
+        SERIALIZE_PROP_HELPER_ATLANTIS(AResourceHandle);
+
+        json["Properties"].push_back(propJson);
     }
 
-    template <>
-    bool Helper_IsEqual(const Color &l, const Color &r)
-    {
-        return l.r == r.r && l.g == r.g && l.b == r.b && l.a == r.a;
-    }
+    return json;
+}
 
-    template <>
-    bool Helper_IsEqual(const Texture2D &l, const Texture2D &r)
+void AObject::Deserialize(const nlohmann::json& json)
+{
+    for (auto& prop : json["Properties"])
     {
-        return l.id == r.id;
-    }
-
-    void AObject::MarkObjectDead()
-    {
-        if (World != nullptr)
+        if (prop.contains("IsDefault"))
         {
-            World->MarkObjectDead(this);
-        }
-    }
-
-    nlohmann::json AObject::Serialize()
-    {
-        nlohmann::json json;
-        const auto &classData = GetClassData();
-
-        json["Name"] = classData.Name.GetName();
-        json["Properties"] = nlohmann::json::array({});
-        for (const auto &propData : classData.Properties)
-        {
-            nlohmann::json propJson = {{"Name", propData.Name.GetName()}, {"Type", propData.Type.GetName()}, {"Offset", propData.Offset}};
-            const AObject *cdo = World->GetCDO<AObject>(classData.Name);
-
-            SERIALIZE_PROP_HELPER(bool);
-            SERIALIZE_PROP_HELPER(int);
-            SERIALIZE_PROP_HELPER(float);
-            SERIALIZE_PROP_HELPER(double);
-            SERIALIZE_PROP_HELPER(Color);
-            SERIALIZE_PROP_HELPER(Texture2D);
-            SERIALIZE_PROP_HELPER(std::string);
-            SERIALIZE_PROP_HELPER_ATLANTIS(AName);
-            SERIALIZE_PROP_HELPER_ATLANTIS(AResourceHandle);
-
-            json["Properties"].push_back(propJson);
-        }
-
-        return json;
-    }
-
-    void AObject::Deserialize(const nlohmann::json &json)
-    {
-        for (auto &prop : json["Properties"])
-        {
-            if (prop.contains("IsDefault"))
+            if (prop["IsDefault"])
             {
-                if (prop["IsDefault"])
-                {
-                    continue;
-                }
-            }
-            else
-            {
-                std::cout << "AObject::Deserialize | Warning: Property " << prop["Name"].get<std::string>() << " has no IsDefault field" << std::endl;
-            }
-
-            DESERIALIZE_PROP_HELPER(bool);
-            DESERIALIZE_PROP_HELPER(int);
-            DESERIALIZE_PROP_HELPER(float);
-            DESERIALIZE_PROP_HELPER(double);
-            DESERIALIZE_PROP_HELPER(Color);
-            DESERIALIZE_PROP_HELPER(Texture2D);
-            DESERIALIZE_PROP_HELPER(std::string);
-            DESERIALIZE_PROP_HELPER_ATLANTIS(AName);
-            DESERIALIZE_PROP_HELPER_ATLANTIS(AResourceHandle);
-        }
-    }
-
-    void AComponent::MarkObjectDead()
-    {
-        AObject::MarkObjectDead();
-
-        if (Owner != nullptr)
-        {
-            Owner->RemoveComponent(this);
-        }
-    }
-
-    void AEntity::MarkObjectDead()
-    {
-        // remove all components from entity
-        for (AComponent *component : Components)
-        {
-            component->OnRemovedFromEntity(this);
-        }
-
-        Components.clear();
-        ComponentNames.clear();
-
-        _componentMask.reset();
-
-        AObject::MarkObjectDead();
-    }
-
-    void AEntity::AddComponent(AComponent *component)
-    {
-        // insert sorted
-        AName componentName = component->GetClassData().Name;
-        auto it = std::lower_bound(ComponentNames.begin(), ComponentNames.end(), componentName);
-        int index = std::distance(ComponentNames.begin(), it);
-
-        Components.insert(Components.begin() + index, component);
-        ComponentNames.insert(it, componentName);
-
-        _componentMask = World->GetComponentMaskForComponents(ComponentNames);
-
-        component->OnAddedToEntity(this);
-    }
-
-    void AEntity::RemoveComponent(AComponent *component)
-    {
-        for (int i = 0; i < Components.size(); i++)
-        {
-            if (Components[i] == component)
-            {
-                Components.erase(Components.begin() + i);
-                ComponentNames.erase(ComponentNames.begin() + i);
-                _componentMask = World->GetComponentMaskForComponents(ComponentNames);
-
-                component->OnRemovedFromEntity(this);
-                break;
-            }
-        }
-    }
-
-    bool AEntity::HasComponentOfType(const AName &name)
-    {
-        for (const AName &compName : ComponentNames)
-        {
-            if (compName == name)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    bool AEntity::HasComponentsByMask(const ComponentBitset &mask)
-    {
-        return (mask & _componentMask) == mask;
-    }
-
-    bool AEntity::HasComponentsOfType(const std::vector<AName> &names)
-    {
-        return HasComponentsByMask(World->GetComponentMaskForComponents(names));
-    }
-
-    void AWorld::QueueSystem(std::function<void()> lambda)
-    {
-        ObjectModifyQueue.push_back(lambda);
-    }
-
-    void Atlantis::AWorld::QueueModifyObject(
-        AObjPtr<AObject> object,
-        std::function<void(AObject*)> lambda)
-    {
-        ObjectModifyQueue.push_back(
-            [object, lambda, this]()
-            {
-                AObject* obj = object.Get();
-                lambda(obj);
-                _registryVersion++;
-            });
-    }
-
-    void AWorld::MarkObjectDead(AObject *object)
-    {
-        object->_isAlive = false;
-        DeadObjects[object->GetClassData().Name].push_back(object);
-        _registryVersion++;
-    }
-
-    void AWorld::QueueObjectDeletion(AObjPtr<AObject> object)
-    {
-        ObjectDestroyQueue.push_back(object);
-    }
-
-    float AWorld::GetDeltaTime() const
-    {
-        return _deltaTime;
-    }
-
-    bool AWorld::IsMainThread() const
-    {
-        return std::this_thread::get_id() == MAIN_THREAD_ID;
-    }
-
-    uint32_t AWorld::GetRegistryVersion() const
-    {
-        return _registryVersion;
-    }
-
-    void AWorld::RegisterSystem(ASystem *system, const std::vector<AName> &beforeLabels)
-    {
-        std::unique_ptr<ASystem> systemPtr(system);
-
-        if (system->IsRenderSystem)
-        {
-            if (beforeLabels.size() > 0)
-            {
-                for (int i = 0; i < SystemsRenderThread.size(); i++)
-                {
-                    const ASystem *sys = SystemsRenderThread[i].get();
-
-                    for (const AName &label : beforeLabels)
-                    {
-                        if (sys->Labels.count(label))
-                        {
-                            SystemsRenderThread.insert(SystemsRenderThread.begin() + i, std::move(systemPtr));
-                            return;
-                        }
-                    }
-                }
-            }
-
-            SystemsRenderThread.push_back(std::move(systemPtr));
-        }
-        else
-        {
-            if (beforeLabels.size() > 0)
-            {
-                for (int i = 0; i < Systems.size(); i++)
-                {
-                    const ASystem *sys = Systems[i].get();
-
-                    for (const AName &label : beforeLabels)
-                    {
-                        if (sys->Labels.count(label))
-                        {
-                            Systems.insert(Systems.begin() + i, std::move(systemPtr));
-                            return;
-                        }
-                    }
-                }
-            }
-
-            Systems.push_back(std::move(systemPtr));
-        }
-    }
-
-    void AWorld::RegisterSystem(std::function<void(AWorld *)> lambda, const std::vector<AName> &labels, const std::vector<AName> &beforeLabels, bool renderThread /* false */)
-    {
-        ALambdaSystem *system = new ALambdaSystem();
-        system->Lambda = lambda;
-        system->Labels = {labels.begin(), labels.end()};
-        system->IsRenderSystem = renderThread;
-
-        RegisterSystem(system, beforeLabels);
-    }
-
-    void AWorld::RegisterSystemRenderThread(
-        std::function<void(AWorld*)> lambda,
-        const std::vector<AName>& labels,
-        const std::vector<AName>& beforeLabels)
-    {
-        RegisterSystem(lambda, labels, beforeLabels, true);
-    }
-
-    void AWorld::RegisterSystemTimesliced(int objectsPerFrame, std::function<void(AWorld *, ASystem *)> lambda, const std::vector<AName> &labels, const std::vector<AName> &beforeLabels, bool renderThread /* false */)
-    {
-        ALambdaSystemTimesliced *system = new ALambdaSystemTimesliced();
-        system->LambdaTimesliced = lambda;
-        system->Labels = {labels.begin(), labels.end()};
-        system->IsRenderSystem = renderThread;
-        system->IsTimesliced = true;
-        system->ObjectsPerFrame = objectsPerFrame;
-
-        RegisterSystem(system, beforeLabels);
-    }
-
-    void AWorld::ProcessSystems()
-    {
-        _frame++;
-        _currentFrameTime = GetTime();
-
-        if (_lastFrameTime > 0.0f)
-        {
-            _deltaTime = _currentFrameTime - _lastFrameTime;
-        }
-
-        SyncEntities();
-
-        for (std::unique_ptr<ASystem> &system : Systems)
-        {
-            system->Process(this);
-        }
-
-        _lastFrameTime = _currentFrameTime;
-    }
-
-    void AWorld::ProcessSystemsRenderThread()
-    {
-        while (MainThreadProcessing)
-        {
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
-        }
-
-        RenderThreadMutex.lock();
-        RenderThreadProcessing = true;
-
-        for (std::function<void()> &lambda : RenderThreadCallQueue)
-        {
-            lambda();
-        }
-
-        RenderThreadCallQueue.clear();
-
-        for (std::unique_ptr<ASystem> &system : SystemsRenderThread)
-        {
-            system->Process(this);
-        }
-
-        RenderThreadProcessing = false;
-        MainThreadProcessing = true;
-        RenderThreadMutex.unlock();
-    }
-
-    void AWorld::QueueRenderThreadCall(std::function<void()> lambda)
-    {
-        RenderThreadMutex.lock();
-        RenderThreadCallQueue.push_back(lambda);
-        RenderThreadMutex.unlock();
-    }
-
-    void AWorld::SyncEntities()
-    {
-        while (RenderThreadProcessing)
-        {
-            std::this_thread::sleep_for(std::chrono::microseconds(1));
-        }
-
-        RenderThreadMutex.lock();
-        MainThreadProcessing = true;
-
-        // Process object creation queue
-        for (auto &command : ObjectCreateCommandsQueue)
-        {
-            command();
-        }
-
-        // Process object deletion queue
-        for (auto &obj : ObjectDestroyQueue)
-        {
-            if (obj.IsValid())
-            {
-                obj->MarkObjectDead();
-            }
-        }
-
-        // Process object iteration queue
-        for (auto &command : ObjectModifyQueue)
-        {
-            command();
-        }
-
-        MainThreadProcessing = false;
-        RenderThreadProcessing = true;
-        RenderThreadMutex.unlock();
-
-        ObjectCreateCommandsQueue.clear();
-        ObjectDestroyQueue.clear();
-        ObjectModifyQueue.clear();
-    }
-
-    const std::vector<std::unique_ptr<AObject, no_deleter>> &AWorld::GetObjectsByName(const AName &objectName)
-    {
-        const std::vector<std::unique_ptr<AObject, no_deleter>> &objList = ObjectLists[objectName];
-
-        return objList;
-    }
-
-    const void* AWorld::GetObjectsByNameRaw(const AName& objectName)
-    {
-        return (void*)AllocatorHelpers[objectName].Start;
-    }
-
-    size_t AWorld::GetObjectCountByType(const AName &objectName)
-    {
-        return GetObjectsByName(objectName).size();
-    }
-
-    const std::vector<AEntity *> AWorld::GetEntitiesWithComponents(const ComponentBitset &componentMask)
-    {
-        static const AName entityName = "AEntity";
-
-        std::vector<AEntity *> intersection;
-        
-        const AEntity* entities = (const AEntity*)GetObjectsByNameRaw(entityName);
-        const size_t entityCount = GetObjectCountByType(entityName);
-        
-        intersection.reserve(entityCount);
-
-        for (int i = 0; i < entityCount; i++)
-        {
-            AEntity *entity = const_cast<AEntity *>(&entities[i]);
-
-            bool isValid = entity->_isAlive && entity->HasComponentsByMask(componentMask);
-
-            if (isValid)
-            {
-                intersection.push_back(entity);
-            }
-        }
-
-        return intersection;
-    }
-
-    void AWorld::ForEntitiesWithComponents(const ComponentBitset &componentMask, std::function<void(AEntity *)> lambda, bool parallel, ASystem* system)
-    {
-        static const AName entityName = "AEntity";
-        const AEntity* entities = (const AEntity*)GetObjectsByNameRaw(entityName);
-        const size_t entityCount = GetObjectCountByType(entityName);
-
-        int start = 0;
-        int end = entityCount;
-
-        if (system != nullptr && system->IsTimesliced)
-        {
-            start = system->CurrentObjectIndex;
-            end = start + system->ObjectsPerFrame;
-
-            if (end > entityCount)
-            {
-                end = entityCount;
-                system->CurrentObjectIndex = 0;
-            }
-            else
-            {
-                system->CurrentObjectIndex = end;
-            }
-        }
-
-        if (parallel)
-        {
-// MSVC currently supports only OpenMP 2.0, which doesn't like range-based for loops :(
-#pragma omp parallel for
-            for (int i = start; i < end; i++)
-            {
-                AEntity *entity = const_cast<AEntity *>(&entities[i]);
-
-                if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
-                {
-                    lambda(entity);
-                }
+                continue;
             }
         }
         else
         {
-            for (int i = start; i < end; i++)
-            {
-                AEntity *entity = const_cast<AEntity *>(&entities[i]);
-
-                if (entity->_isAlive && entity->HasComponentsByMask(componentMask))
-                {
-                    lambda(entity);
-                }
-            }
+            std::cout << "AObject::Deserialize | Warning: Property "
+                      << prop["Name"].get<std::string>()
+                      << " has no IsDefault field" << std::endl;
         }
+
+        DESERIALIZE_PROP_HELPER(bool);
+        DESERIALIZE_PROP_HELPER(int);
+        DESERIALIZE_PROP_HELPER(float);
+        DESERIALIZE_PROP_HELPER(double);
+        DESERIALIZE_PROP_HELPER(Color);
+        DESERIALIZE_PROP_HELPER(Texture2D);
+        DESERIALIZE_PROP_HELPER(std::string);
+        DESERIALIZE_PROP_HELPER_ATLANTIS(AName);
+        DESERIALIZE_PROP_HELPER_ATLANTIS(AResourceHandle);
+    }
+}
+
+void AComponent::MarkObjectDead()
+{
+    AObject::MarkObjectDead();
+
+    if (Owner != nullptr)
+    {
+        Owner->RemoveComponent(this);
+    }
+}
+
+void AEntity::MarkObjectDead()
+{
+    ComponentBitset oldMask = _componentMask;
+
+    // remove all components from entity
+    for (AComponent* component : Components)
+    {
+        component->OnRemovedFromEntity(this);
     }
 
-    ComponentBitset AWorld::GetComponentMaskForComponents(std::vector<AName> componentsNames)
+    Components.clear();
+    ComponentNames.clear();
+
+    _componentMask.reset();
+
+    if (World != nullptr)
     {
-        ComponentBitset ret = 0x0;
-
-        for (int i = 0; i < componentsNames.size(); i++)
-        {
-            for (int j = 0; j < ComponentNames.size(); j++)
-            {
-                if (componentsNames[i] == ComponentNames[j])
-                {
-                    ret.set(j, true);
-                }
-            }
-        }
-
-        return ret;
+        World->UpdateSystemViewsForEntity(this, oldMask, _componentMask);
     }
 
-    void AWorld::Clear()
+    AObject::MarkObjectDead();
+}
+
+uint32_t AEntity::GetStaticComponentIndex(const AName& name) const
+{
+    return std::distance(World->ComponentNames.begin(),
+                         std::find(World->ComponentNames.begin(),
+                                   World->ComponentNames.end(),
+                                   name));
+}
+
+AComponent* AEntity::GetComponentOfType(const AName& name) const
+{
+    const uint32_t staticIndex = GetStaticComponentIndex(name);
+
+    if (_componentMask[staticIndex] == 0)
     {
-        CData.clear();
-        CDOs.clear();
-        ObjectLists.clear();
-        DeadObjects.clear();
-        Systems.clear();
-        SystemsRenderThread.clear();
-        ObjectCreateCommandsQueue.clear();
-        ObjectDestroyQueue.clear();
-        ObjectModifyQueue.clear();
-        ComponentNames.clear();
-
-        for (auto thing : AllocatorHelpers)
-        {
-            free((void *)thing.second.Start);
-        }
-
-        AllocatorHelpers.clear();
-    }
-
-    void AWorld::OnPreHotReload()
-    {
-        ObjectCreateCommandsQueue.clear();
-        ObjectDestroyQueue.clear();
-        ObjectModifyQueue.clear();
-    }
-
-    void AWorld::OnPostHotReload()
-    {
-        // TODO: hack
-        _currentFrameTime = GetTime();
-        _deltaTime = 0.0001f;
-        _lastFrameTime = _currentFrameTime - _deltaTime;
-        _frame++;
-    }
-
-    void AWorld::OnShutdown()
-    {
-        MainThreadProcessing = false;
-        RenderThreadProcessing = false;
-    }
-
-    AResourceHandle AResourceHolder::GetTexture(std::string path)
-    {
-        if (World == nullptr)
-        {
-            std::cout << "AResourceHolder::GetTexture | Error: World is null" << std::endl;
-            return AResourceHandle();
-        }
-
-        if (Resources.contains(path))
-        {
-            AResourceHandle ret(Resources.at(path).get());
-            return ret;
-        }
-
-        if (World->IsMainThread())
-        {
-            World->QueueRenderThreadCall([this, path]()
-                                         { Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str())))); });
-        }
-        else
-        {
-            Resources.emplace(path, std::move(std::make_unique<ATextureResource>(LoadTexture((Helpers::GetProjectDirectory().string() + path).c_str()))));
-        }
-
-        AResourceHandle ret(this, path);
-        return ret;
-    }
-
-    void *AResourceHolder::GetResourcePtr(std::string path)
-    {
-        if (Resources.contains(path))
-        {
-            return Resources.at(path).get();
-        }
-
         return nullptr;
     }
+
+    const size_t shift = MAX_COMPONENTS - staticIndex;
+
+    return Components[(_componentMask << shift).count()];
+}
+
+void AEntity::AddComponent(AComponent* component)
+{
+    ComponentBitset oldMask = _componentMask;
+    AName componentName = component->GetClassData().Name;
+    auto it = std::lower_bound(
+        ComponentNames.begin(), ComponentNames.end(), componentName);
+    int index = std::distance(ComponentNames.begin(), it);
+
+    if(it == ComponentNames.end())
+    {
+        Components.push_back(component);
+        ComponentNames.push_back(componentName);
+    }
+    else
+    {
+        Components.insert(Components.begin() + index, component);
+        ComponentNames.insert(it, componentName);
+    }
+
+    _componentMask = World->GetComponentMaskForComponents(ComponentNames);
+
+    if (World != nullptr)
+    {
+        World->UpdateSystemViewsForEntity(this, oldMask, _componentMask);
+    }
+
+    component->OnAddedToEntity(this);
+}
+
+void AEntity::RemoveComponent(AComponent* component)
+{
+    for (int i = 0; i < Components.size(); i++)
+    {
+        if (Components[i] == component)
+        {
+            ComponentBitset oldMask = _componentMask;
+            Components.erase(Components.begin() + i);
+            ComponentNames.erase(ComponentNames.begin() + i);
+            _componentMask =
+                World->GetComponentMaskForComponents(ComponentNames);
+
+            if (World != nullptr)
+            {
+                World->UpdateSystemViewsForEntity(this, oldMask, _componentMask);
+            }
+
+            component->OnRemovedFromEntity(this);
+            break;
+        }
+    }
+}
+
+bool AEntity::HasComponentOfType(const AName& name)
+{
+    for (const AName& compName : ComponentNames)
+    {
+        if (compName == name)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool AEntity::HasComponentsOfType(const std::vector<AName>& names)
+{
+    return HasComponentsByMask(World->GetComponentMaskForComponents(names));
+}
+
+AResourceHandle AResourceHolder::GetTexture(std::string path)
+{
+    if (World == nullptr)
+    {
+        std::cout << "AResourceHolder::GetTexture | Error: World is null"
+                  << std::endl;
+        return AResourceHandle();
+    }
+
+    if (Resources.contains(path))
+    {
+        AResourceHandle ret(Resources.at(path).get());
+        return ret;
+    }
+
+    if (World->IsMainThread())
+    {
+        World->QueueRenderThreadCall(
+            [this, path]()
+            {
+                if (Resources.contains(path))
+                {
+                    return;
+                }
+
+                Resources.emplace(
+                    path,
+                    std::move(std::make_unique<ATextureResource>(LoadTexture(
+                        (Helpers::GetProjectDirectory().string() + path)
+                            .c_str()))));
+            });
+    }
+    else
+    {
+        Resources.emplace(
+            path,
+            std::move(std::make_unique<ATextureResource>(LoadTexture(
+                (Helpers::GetProjectDirectory().string() + path).c_str()))));
+    }
+
+    AResourceHandle ret(this, path);
+    return ret;
+}
+
+AResourceHandle AResourceHolder::GetShader(std::string path,
+                                           int variant /*= 0*/)
+{
+    // add a suffix to the path to differentiate between different shader
+    // variants use format "[path]__variant[variant]"
+    std::string originalPath = path;
+    path += "__variant" + std::to_string(variant);
+
+    if (World == nullptr)
+    {
+        std::cout << "AResourceHolder::GetTexture | Error: World is null"
+                  << std::endl;
+        return AResourceHandle();
+    }
+
+    if (Resources.contains(path))
+    {
+        AResourceHandle ret(Resources.at(path).get());
+        return ret;
+    }
+
+    // the only difference is the extension, .vs for vertex shader and .fs for
+    // fragment shader
+    std::string vertexShaderPath =
+        (Helpers::GetProjectDirectory().string() + originalPath + ".vs");
+    std::string fragmentShaderPath =
+        (Helpers::GetProjectDirectory().string() + originalPath + ".fs");
+
+    if (World->IsMainThread())
+    {
+
+        World->QueueRenderThreadCall(
+            [this, path, vertexShaderPath, fragmentShaderPath]()
+            {
+                if (Resources.contains(path))
+                {
+                    return;
+                }
+
+                Resources.emplace(path,
+                                  std::move(std::make_unique<AShaderResource>(
+                                      LoadShader(vertexShaderPath.c_str(),
+                                                 fragmentShaderPath.c_str()))));
+            });
+    }
+    else
+    {
+        Resources.emplace(
+            path,
+            std::move(std::make_unique<AShaderResource>(LoadShader(
+                vertexShaderPath.c_str(), fragmentShaderPath.c_str()))));
+    }
+
+    AResourceHandle ret(this, path);
+    return ret;
+}
+
+void AResourceHolder::LoadGuiStyle(std::string path)
+{
+    if (World->IsMainThread())
+    {
+        World->QueueRenderThreadCall(
+            [this, path]() {
+                GuiLoadStyle(
+                    (Helpers::GetProjectDirectory().string() + path).c_str());
+            });
+    }
+    else
+    {
+        GuiLoadStyle((Helpers::GetProjectDirectory().string() + path).c_str());
+    }
+}
+
+void* AResourceHolder::GetResourcePtr(std::string path)
+{
+    if (Resources.contains(path))
+    {
+        return Resources.at(path).get();
+    }
+
+    return nullptr;
+}
+
+void* AObjPtrHelper::GetPtr(AName typeName, size_t uid, AWorld* world)
+{
+    return world->GetObjectsByName(typeName)[uid].get();
+}
 
 } // namespace Atlantis
