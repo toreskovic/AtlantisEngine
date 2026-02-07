@@ -423,6 +423,7 @@ void AWorld::SyncEntities()
     {
         command();
     }
+    ObjectCreateCommandsQueue.clear();
     IsProcessingObjectCreationQueue = false;
 
     // Process object deletion queue
@@ -433,12 +434,14 @@ void AWorld::SyncEntities()
             obj->MarkObjectDead();
         }
     }
+    ObjectDestroyQueue.clear();
 
     // Process object iteration queue
     for (auto& command : ObjectModifyQueue)
     {
         command();
     }
+    ObjectModifyQueue.clear();
 
     std::vector<ARenderProxy2DHigh>& mainHigh = GetMainRenderProxiesHigh();
     std::vector<ARenderProxy2DMid>& mainMid = GetMainRenderProxiesMid();
@@ -478,10 +481,6 @@ void AWorld::SyncEntities()
     }
 
     PhaseCv.notify_all();
-
-    ObjectCreateCommandsQueue.clear();
-    ObjectDestroyQueue.clear();
-    ObjectModifyQueue.clear();
 }
 
 const std::vector<std::unique_ptr<AObject, no_deleter>>&
