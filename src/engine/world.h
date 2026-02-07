@@ -29,6 +29,8 @@
 
 namespace Atlantis
 {
+struct AWorld;
+
 struct no_deleter
 {
     void operator()(void* const ptr) const {}
@@ -59,7 +61,7 @@ struct ISystemViewBase
     virtual ~ISystemViewBase() = default;
     virtual void AddEntity(AEntity* entity) = 0;
     virtual void RemoveEntity(AEntity* entity) = 0;
-    virtual void RefreshPointers(AWorld* world) = 0;
+    virtual void RefreshPointers(AWorld* world, size_t capacity) = 0;
     virtual const std::vector<AEntity*>& GetEntities() const = 0;
 };
 
@@ -131,29 +133,18 @@ struct ASystemView : public ISystemViewBase
         EntityIndexById.erase(it);
     }
 
-    void RefreshPointers(AWorld* world) override
-    {
-        if (world == nullptr)
-        {
-            return;
-        }
-
-        const AName entityType = AEntity::GetClassDataStatic().Name;
-        for (const auto& entry : EntityIndexById)
-        {
-            size_t uid = entry.first;
-            size_t index = entry.second;
-            Entities[index] = static_cast<AEntity*>(
-                AObjPtrHelper::GetPtr(entityType, uid, world));
-        }
-
-        ResizeComponents(Entities.size(), std::index_sequence_for<Types...>{});
-        RefreshComponents(std::index_sequence_for<Types...>{});
-    }
+    void RefreshPointers(AWorld* world, size_t capacity) override;
 
     const std::vector<AEntity*>& GetEntities() const override
     {
         return Entities;
+    }
+
+    void Reserve(size_t capacity)
+    {
+        Entities.reserve(capacity);
+        Indices.reserve(capacity);
+        (std::get<std::vector<Types*>>(ComponentVectors).reserve(capacity), ...);
     }
 
 private:
@@ -321,6 +312,7 @@ struct AWorld
     template<typename T>
     void RegisterDefault(AName name = AName::None())
     {
+        // RegisterDefault<T, 10000, 10000>(name);
         RegisterDefault<T, 2097152, 2097152>(name);
     }
 
@@ -611,6 +603,7 @@ struct AWorld
         ComponentBitset mask = GetComponentMaskForComponents<Types...>();
         auto view = std::make_unique<ASystemView<Types...>>();
         ASystemView<Types...>* viewPtr = view.get();
+        viewPtr->Reserve(AllocatorHelpers["AEntity"].Limit);
         SystemViews[mask] = std::move(view);
 
         const std::vector<AEntity*> entities = GetEntitiesWithComponents(mask);
@@ -941,6 +934,30 @@ private:
     uint32_t _frame = 0;
     uint32_t _registryVersion = 0;
 };
+
+template<typename... Types>
+void ASystemView<Types...>::RefreshPointers(AWorld* world, size_t capacity)
+{
+    if (world == nullptr)
+    {
+        return;
+    }
+
+    Reserve(capacity);
+
+    const AName entityType = AEntity::GetClassDataStatic().Name;
+    const AEntity* entities =
+        static_cast<const AEntity*>(world->GetObjectsByNameRaw(entityType));
+    for (const auto& entry : EntityIndexById)
+    {
+        size_t uid = entry.first;
+        size_t index = entry.second;
+        Entities[index] = const_cast<AEntity*>(&entities[uid]);
+    }
+
+    ResizeComponents(Entities.size(), std::index_sequence_for<Types...>{});
+    RefreshComponents(std::index_sequence_for<Types...>{});
+}
 }
 
 #endif // ATLANTIS_WORLD_H

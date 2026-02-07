@@ -116,9 +116,10 @@ void AWorld::UpdateSystemViewsForEntity(AEntity* entity,
 
 void AWorld::RefreshSystemViews()
 {
+    size_t entityCapacity = AllocatorHelpers["AEntity"].Limit;
     for (auto& entry : SystemViews)
     {
-        entry.second->RefreshPointers(this);
+        entry.second->RefreshPointers(this, entityCapacity);
     }
 }
 
