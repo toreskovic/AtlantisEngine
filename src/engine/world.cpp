@@ -38,26 +38,44 @@ void AWorld::QueueObjectDeletion(AObjPtr<AObject> object)
 
 size_t AWorld::AddRenderProxy(const ARenderProxy2D& proxy)
 {
-    if (RenderProxies2D.size() > proxy._uid)
+    std::vector<ARenderProxy2D>& proxies = GetMainRenderProxies();
+    if (proxies.size() <= proxy._uid)
     {
-        RenderProxies2D[proxy._uid] = proxy;
-        RenderProxies2D2[proxy._uid] = proxy;
-        return proxy._uid;
+        // temp hardcoded increment, should probably use the reserved space for render components
+        proxies.resize(proxy._uid + 10000);
     }
-
-    RenderProxies2D.push_back(proxy);
-    RenderProxies2D2.push_back(proxy);
-    return RenderProxies2D.size();
+    proxies[proxy._uid] = proxy;
+    MarkRenderProxyDirty(proxy._uid);
+    return proxy._uid;
 }
 
 void AWorld::RemoveRenderProxy(size_t uid)
 {
-    ARenderProxy2D& proxy = RenderProxies2D[uid];
-    ARenderProxy2D& proxy2 = RenderProxies2D2[uid];
+    std::vector<ARenderProxy2D>& proxies = GetMainRenderProxies();
+    if (uid >= proxies.size())
+    {
+        return;
+    }
+
+    ARenderProxy2D& proxy = proxies[uid];
     proxy._uid = std::numeric_limits<size_t>::max();
     proxy.zoom = 0.0f;
-    proxy2._uid = std::numeric_limits<size_t>::max();
-    proxy2.zoom = 0.0f;
+    MarkRenderProxyDirty(uid);
+}
+
+void AWorld::MarkRenderProxyDirty(size_t uid)
+{
+    DirtyRenderProxyIds.push_back(uid);
+}
+
+std::vector<ARenderProxy2D>& AWorld::GetMainRenderProxies()
+{
+    return RenderUsingRenderProxies2.load() ? RenderProxies2D : RenderProxies2D2;
+}
+
+std::vector<ARenderProxy2D>& AWorld::GetRenderProxies()
+{
+    return RenderUsingRenderProxies2.load() ? RenderProxies2D2 : RenderProxies2D;
 }
 
 float AWorld::GetDeltaTime() const
@@ -187,6 +205,17 @@ void AWorld::RegisterSystemTimesliced(
 
 void AWorld::ProcessSystems()
 {
+    {
+        std::unique_lock<std::mutex> lock(FrameSyncMutex);
+        FrameDoneCv.wait(
+            lock,
+            [this]() { return ShutdownRequested || FrameProduced == FrameRendered; });
+        if (ShutdownRequested)
+        {
+            return;
+        }
+    }
+
     _frame++;
     _currentFrameTime = GetTime();
 
@@ -197,6 +226,12 @@ void AWorld::ProcessSystems()
 
     SyncEntities();
 
+    {
+        std::lock_guard<std::mutex> lock(FrameSyncMutex);
+        FrameProduced++;
+    }
+    FrameReadyCv.notify_one();
+
     static AWorld* world = this;
     DO_PROFILE("AWorld::ProcessSystems - Systems", RED);
     for (std::unique_ptr<ASystem>& system : Systems)
@@ -204,21 +239,29 @@ void AWorld::ProcessSystems()
         system->Process(this);
     }
 
+    UiSystem.PreDraw();
+
     ProfilerMainThread->Process(this);
     _lastFrameTime = _currentFrameTime;
 }
 
 void AWorld::ProcessSystemsRenderThread()
 {
-    while (MainThreadProcessing)
     {
-        std::this_thread::sleep_for(std::chrono::microseconds(1));
+        std::unique_lock<std::mutex> lock(FrameSyncMutex);
+        FrameReadyCv.wait(
+            lock,
+            [this]() { return ShutdownRequested || FrameProduced > FrameRendered; });
+        if (ShutdownRequested)
+        {
+            return;
+        }
+        PhaseCv.wait(lock, [this]() { return !MainSyncActive; });
+        RenderPreAsyncActive = true;
+        RenderThreadProcessing = true;
     }
 
     RenderThreadMutex.lock();
-    RenderThreadProcessing = true;
-    RenderUsingRenderProxies2 = !RenderUsingRenderProxies2;
-
     BeginDrawing();
 
     for (std::function<void()>& lambda : RenderThreadCallQueue)
@@ -236,14 +279,17 @@ void AWorld::ProcessSystemsRenderThread()
     // Process input
     InputHandler.SyncInput();
 
-    MainThreadProcessing = true;
     RenderThreadMutex.unlock();
 
-    for (std::function<void()>& lambda : RenderThreadCallQueueAsync)
+    std::vector<std::function<void()>> asyncQueue;
+    {
+        std::lock_guard<std::mutex> lock(RenderThreadCallQueueAsyncMutex);
+        asyncQueue.swap(RenderThreadCallQueueAsync);
+    }
+    for (std::function<void()>& lambda : asyncQueue)
     {
         lambda();
     }
-    RenderThreadCallQueueAsync.clear();
 
     // UI
     UiSystem.Process(this);
@@ -252,36 +298,37 @@ void AWorld::ProcessSystemsRenderThread()
 
     ProfilerRenderThread->Process(this);
     EndDrawing();
+
+    {
+        std::lock_guard<std::mutex> lock(FrameSyncMutex);
+        RenderPreAsyncActive = false;
+        FrameRendered++;
+    }
+
+    PhaseCv.notify_all();
+    FrameDoneCv.notify_all();
 }
 
 void AWorld::QueueRenderThreadCall(std::function<void()> lambda)
 {
-    RenderThreadMutex.lock();
+    std::lock_guard<std::mutex> lock(RenderThreadMutex);
     RenderThreadCallQueue.push_back(lambda);
-    RenderThreadMutex.unlock();
 }
 
 void AWorld::QueueRenderThreadCallAsync(std::function<void()> lambda)
 {
-    // todo: atomic push
+    std::lock_guard<std::mutex> lock(RenderThreadCallQueueAsyncMutex);
     RenderThreadCallQueueAsync.push_back(lambda);
 }
 
 void AWorld::SyncEntities()
 {
-    while (RenderThreadProcessing)
     {
-        std::this_thread::sleep_for(std::chrono::microseconds(1));
+        std::unique_lock<std::mutex> lock(FrameSyncMutex);
+        PhaseCv.wait(lock, [this]() { return !RenderPreAsyncActive; });
+        MainSyncActive = true;
+        MainThreadProcessing = true;
     }
-
-    RenderThreadMutex.lock();
-    MainThreadProcessing = true;
-    while (MainUsingRenderProxies2 == RenderUsingRenderProxies2)
-    {
-        std::this_thread::sleep_for(std::chrono::microseconds(1));
-    }
-    MainUsingRenderProxies2 = !MainUsingRenderProxies2;
-    RenderThreadMutex.unlock();
 
     static AWorld* world = this;
     DO_PROFILE("AWorld::SyncEntities", RED);
@@ -308,10 +355,31 @@ void AWorld::SyncEntities()
         command();
     }
 
-    RenderThreadMutex.lock();
-    MainThreadProcessing = false;
-    RenderThreadProcessing = true;
-    RenderThreadMutex.unlock();
+    std::vector<ARenderProxy2D>& mainProxies = GetMainRenderProxies();
+    std::vector<ARenderProxy2D>& renderProxies = GetRenderProxies();
+    if (renderProxies.size() < mainProxies.size())
+    {
+        renderProxies.resize(mainProxies.size());
+    }
+
+    for (size_t uid : DirtyRenderProxyIds)
+    {
+        if (uid < mainProxies.size())
+        {
+            renderProxies[uid] = mainProxies[uid];
+        }
+    }
+
+    DirtyRenderProxyIds.clear();
+    RenderUsingRenderProxies2.store(!RenderUsingRenderProxies2.load());
+
+    {
+        std::lock_guard<std::mutex> lock(FrameSyncMutex);
+        MainThreadProcessing = false;
+        MainSyncActive = false;
+    }
+
+    PhaseCv.notify_all();
 
     ObjectCreateCommandsQueue.clear();
     ObjectDestroyQueue.clear();
@@ -480,8 +548,16 @@ void AWorld::OnPostHotReload()
 
 void AWorld::OnShutdown()
 {
-    MainThreadProcessing = false;
-    RenderThreadProcessing = false;
-    MainUsingRenderProxies2 = !RenderUsingRenderProxies2;
+    {
+        std::lock_guard<std::mutex> lock(FrameSyncMutex);
+        ShutdownRequested = true;
+        MainThreadProcessing = false;
+        RenderThreadProcessing = false;
+        MainSyncActive = false;
+        RenderPreAsyncActive = false;
+    }
+    PhaseCv.notify_all();
+    FrameReadyCv.notify_all();
+    FrameDoneCv.notify_all();
 }
 }

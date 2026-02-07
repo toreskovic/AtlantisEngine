@@ -24,6 +24,7 @@ namespace Atlantis
         void SetVisible(bool visible);
         bool GetVisible() const;
 
+        void PreDraw();
         void Draw();
     private:
         std::vector<UIElement> _elements;
@@ -45,6 +46,7 @@ namespace Atlantis
             IsRenderSystem = true;
         };
 
+        void PreDraw();
         void Process(AWorld* world) override;
 
         AUiScreen* AddScreen(AUiScreen screen);

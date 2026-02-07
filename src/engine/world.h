@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <bitset>
+#include <condition_variable>
 #include <functional>
 #include <iostream>
 #include <map>
@@ -63,11 +64,17 @@ struct AWorld
     // TEMP for testing
     std::vector<std::unique_ptr<ASystem>> SystemsRenderThread;
     std::mutex RenderThreadMutex;
+    std::mutex FrameSyncMutex;
     std::mutex ProfilingMutex;
+    std::condition_variable FrameReadyCv;
+    std::condition_variable FrameDoneCv;
+    std::condition_variable PhaseCv;
     const std::thread::id MAIN_THREAD_ID = std::this_thread::get_id();
     const std::thread::id RENDER_THREAD_ID;
     std::vector<std::function<void()>> RenderThreadCallQueue;
     std::vector<std::function<void()>> RenderThreadCallQueueAsync;
+    std::mutex RenderThreadCallQueueAsyncMutex;
+    std::vector<size_t> DirtyRenderProxyIds;
 
     AResourceHolder ResourceHolder = AResourceHolder(this);
     AInputHandler InputHandler;
@@ -81,6 +88,11 @@ struct AWorld
 
     std::atomic<bool> MainThreadProcessing = false;
     std::atomic<bool> RenderThreadProcessing = false;
+    bool MainSyncActive = false;
+    bool RenderPreAsyncActive = false;
+    bool ShutdownRequested = false;
+    uint64_t FrameProduced = 0;
+    uint64_t FrameRendered = 0;
 
     bool IsProcessingObjectCreationQueue = false;
 
@@ -317,12 +329,16 @@ struct AWorld
 
     std::vector<ARenderProxy2D> RenderProxies2D;
     std::vector<ARenderProxy2D> RenderProxies2D2;
-    bool MainUsingRenderProxies2 = false;
-    bool RenderUsingRenderProxies2 = true;
+    std::atomic<bool> RenderUsingRenderProxies2 = true;
 
     size_t AddRenderProxy(const ARenderProxy2D& proxy);
 
     void RemoveRenderProxy(size_t uid);
+
+    void MarkRenderProxyDirty(size_t uid);
+
+    std::vector<ARenderProxy2D>& GetMainRenderProxies();
+    std::vector<ARenderProxy2D>& GetRenderProxies();
 
     float GetDeltaTime() const;
 

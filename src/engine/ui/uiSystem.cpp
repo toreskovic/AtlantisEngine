@@ -84,6 +84,18 @@ bool AUiScreen::GetVisible() const
     return _visible;
 }
 
+void AUiScreen::PreDraw()
+{
+    for (UIElement& uiElement : _elements)
+    {
+        if (uiElement.OnPreDraw)
+        {
+            _needsRedraw = uiElement.OnPreDraw(&uiElement) || _needsRedraw;
+        }
+    }
+
+}
+
 void AUiScreen::Draw()
 {
     UiVisitor uiVisitor;
@@ -111,11 +123,6 @@ void AUiScreen::Draw()
     Vector2 mousePosition = GetMousePosition();
     for (auto& uiElement : _elements)
     {
-        if (uiElement.OnPreDraw)
-        {
-            _needsRedraw = uiElement.OnPreDraw(&uiElement) || _needsRedraw;
-        }
-
         // check if mouse is hovering over element
         if (CheckCollisionPointRec(mousePosition, uiElement.Bounds))
         {
@@ -202,6 +209,19 @@ void AUiScreen::Draw()
     }
 
     EndTextureMode();
+}
+
+void SUiSystem::PreDraw()
+{
+    for (auto& screen : _screens)
+    {
+        if (screen._visible == false)
+        {
+            continue;
+        }
+
+        screen.PreDraw();
+    }
 }
 
 void SUiSystem::Process(AWorld* world)

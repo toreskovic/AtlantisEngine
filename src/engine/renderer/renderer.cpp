@@ -19,11 +19,14 @@ namespace Atlantis
 
 void CRenderable::OnAddedToEntity(AEntity* entity)
 {
-    World->RenderProxies2D[_uid]._uid = _uid;
-    World->RenderProxies2D2[_uid]._uid = _uid;
-
-    World->RenderProxies2D[_uid].zoom = scaleX;
-    World->RenderProxies2D2[_uid].zoom = scaleX;
+    std::vector<ARenderProxy2D>& proxies = World->GetMainRenderProxies();
+    if (_uid >= proxies.size())
+    {
+        proxies.resize(_uid + 1);
+    }
+    proxies[_uid]._uid = _uid;
+    proxies[_uid].zoom = scaleX;
+    World->MarkRenderProxyDirty(_uid);
 
     AComponent::OnAddedToEntity(entity);
 }
@@ -85,7 +88,12 @@ static inline uint8_t PackUnorm8(float x) {
 // the following is used for indirect rendering
 void RenderEntitiesInternal(const RenderTexture2D& atlasTexture, 
                              const std::vector<ARenderProxy2D>& entityData,
-                             const std::vector<TextureData>& textureData)
+                             const std::vector<TextureData>& textureData,
+                             float cameraZoom,
+                             float cameraX,
+                             float cameraY,
+                             float screenWidth,
+                             float screenHeight)
 {
     static Shader shader = LoadShaderFromMemory(
         R"""(
@@ -122,6 +130,9 @@ out vec4 fragColor;      // Pass the color to the fragment shader
 out float fragColorOverrideFactor; // Pass the color override factor to the fragment shader
 
 uniform mat4 projection;
+uniform vec2 screenSize;
+uniform vec2 cameraPos;
+uniform float cameraZoom;
 
 void main() {
     // Get the texture data
@@ -146,8 +157,10 @@ void main() {
     position -= instancePivot * vec2(width, height) * instanceZoom;
     position = vec2(position.x * cos(instanceRotation * 3.1415 / 180.0) - position.y * sin(instanceRotation * 3.1415 / 180.0),
                     position.x * sin(instanceRotation * 3.1415 / 180.0) + position.y * cos(instanceRotation * 3.1415 / 180.0));
-    
-    position += instancePos;
+
+    vec2 halfScreen = screenSize * 0.5;
+    vec2 cameraAdjustedPos = (instancePos - halfScreen) * cameraZoom + halfScreen - cameraPos * cameraZoom;
+    position += cameraAdjustedPos;
     
     gl_Position = projection * vec4(position, 0.0, 1.0);
 
@@ -312,8 +325,11 @@ void main() {
         glUnmapBuffer(GL_DRAW_INDIRECT_BUFFER);
     }
 
-    GLint texLoc = GetShaderLocation(shader, "atlasTexture");
-    GLint projLoc = GetShaderLocation(shader, "projection");
+    static const GLint texLoc = GetShaderLocation(shader, "atlasTexture");
+    static const GLint projLoc = GetShaderLocation(shader, "projection");
+    static const GLint screenSizeLoc = GetShaderLocation(shader, "screenSize");
+    static const GLint cameraPosLoc = GetShaderLocation(shader, "cameraPos");
+    static const GLint cameraZoomLoc = GetShaderLocation(shader, "cameraZoom");
 
     int width = GetScreenWidth();
     int height = GetScreenHeight();
@@ -335,6 +351,9 @@ void main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, textureSSBO);
 
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection.m0);
+    glUniform2f(screenSizeLoc, screenWidth, screenHeight);
+    glUniform2f(cameraPosLoc, cameraX, cameraY);
+    glUniform1f(cameraZoomLoc, cameraZoom);
 
     rlSetUniformSampler(texLoc, atlasTexture.texture.id);
 
@@ -361,7 +380,7 @@ void SRenderer::RenderAllEntities(AWorld* world)
 
     static RenderTexture2D atlasTexture = LoadRenderTexture(16384, 16384);
 
-    std::vector<ARenderProxy2D>& renderProxies = world->RenderUsingRenderProxies2 ? world->RenderProxies2D2 : world->RenderProxies2D;
+    std::vector<ARenderProxy2D>& renderProxies = world->GetRenderProxies();
 
     size_t startIndex = 0;
     size_t endIndex = renderProxies.size();
@@ -462,12 +481,12 @@ void SRenderer::RenderAllEntities(AWorld* world)
 
         textureData.clear();
 
-        std::vector<ARenderProxy2D>& renderProxies = world->RenderUsingRenderProxies2 ? world->RenderProxies2D2 : world->RenderProxies2D;
+        std::vector<ARenderProxy2D>& renderProxies = world->GetRenderProxies();
         for (ARenderProxy2D& proxy : renderProxies)
         {
-            // scale using zoom
-            auto x = (proxy.position.x - halfWidth) * Zoom + halfWidth - camX * Zoom;
-            auto y = (proxy.position.y - halfHeight) * Zoom + halfHeight - camY * Zoom;
+            // keep world-space position; camera scaling happens in vertex shader
+            // auto x = proxy.position.x;
+            // auto y = proxy.position.y;
 
             // don't draw if outside of screen
             // this should be handled automagically by opengl
@@ -514,14 +533,14 @@ void SRenderer::RenderAllEntities(AWorld* world)
                     textureIndex = textureData.size() - 1;
                 }
 
-                proxy.position = { x, y };
+                // proxy.position = { x, y };
                 proxy.textureIndex = textureIndex;
             }
         }
 
         EndTextureMode();
 
-        RenderEntitiesInternal(atlasTexture, renderProxies, textureData);
+        RenderEntitiesInternal(atlasTexture, renderProxies, textureData, Zoom, (float)camX, (float)camY, (float)width, (float)height);
     });
 }
 
@@ -612,8 +631,8 @@ void SRenderer::PrepareAtlasTexture(AWorld* world, RenderTexture2D& atlasTexture
         CColor* col = e->GetComponentOfType<CColor>();
 
         // scale using zoom
-        auto x = (pos->x - halfWidth) * Zoom + halfWidth - camX * Zoom;
-        auto y = (pos->y - halfHeight) * Zoom + halfHeight - camY * Zoom;
+        // auto x = (pos->x - halfWidth) * Zoom + halfWidth - camX * Zoom;
+        // auto y = (pos->y - halfHeight) * Zoom + halfHeight - camY * Zoom;
 
         ATextureResource* tex = ren->textureHandle.get<ATextureResource>();
         if (tex != nullptr)

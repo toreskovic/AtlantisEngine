@@ -66,10 +66,11 @@ extern "C"
         auto* screen = _uiSystem->AddScreen(AUiScreen{});
 
         auto *panelBg = screen->AddElement(
-            {Rectangle{ 64 - 16, 64 - 16, 300, 100 }, "", DummyRec{}});
+            {Rectangle{ 64 - 16 - 8, 64 - 16 - 8, 300 + 16, 100 + 16 }, "", DummyRec{}});
 
         auto *panel = screen->AddElement(
             {Rectangle{ 64 - 16, 64 - 16, 300, 100 }, "", GroupBox{}});
+        panel->Text = "Stats";
 
         auto* btn = screen->AddElement(
             {Rectangle{ 1920 - 300 - 64, 128, 300, 50 }, "Test Button", Button{}});
@@ -120,16 +121,8 @@ extern "C"
         
         label2->OnPreDraw = [](UIElement* e)
         {
-            auto entities =
-                World->GetEntitiesWithComponents<CPosition, CRenderable>();
-            int count = 0;
-            for (AEntity* e : entities)
-            {
-                if (e->_isAlive)
-                {
-                    count++;
-                }
-            }
+            static const AName entityType = AName("AEntity");
+            size_t count = World->GetObjectCountByType(entityType);
 
             auto bunnyStr = fmt::format("Bunnies: {}", count);
 
@@ -165,7 +158,7 @@ extern "C"
             {
                 if (fps > 60.0f)
                 {
-                    for (int i = 0; i < 100; i++)
+                    for (int i = 0; i < 200; i++)
                     {
                         createBunny();
                     }
