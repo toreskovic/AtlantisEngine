@@ -601,6 +601,11 @@ struct AWorld
     void RegisterSystemView()
     {
         ComponentBitset mask = GetComponentMaskForComponents<Types...>();
+        if (SystemViews.contains(mask))
+        {
+            return;
+        }
+
         auto view = std::make_unique<ASystemView<Types...>>();
         ASystemView<Types...>* viewPtr = view.get();
         viewPtr->Reserve(AllocatorHelpers["AEntity"].Limit);
