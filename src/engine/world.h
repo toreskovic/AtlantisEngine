@@ -76,7 +76,7 @@ struct ASystemView : public ISystemViewBase
     template<typename C>
     std::vector<C*>& GetComponentVector()
     {
-        return *reinterpret_cast<std::vector<C*>*>(&ComponentVectors[C::GetClassDataStatic().Name]);
+        return *reinterpret_cast<std::vector<C*>*>(&ComponentVectors[C::ClassName]);
     }
 
     void AddEntity(AEntity* entity) override
@@ -143,20 +143,20 @@ struct ASystemView : public ISystemViewBase
     {
         Entities.reserve(capacity);
         Indices.reserve(capacity);
-        (ComponentVectors[Types::GetClassDataStatic().Name].reserve(capacity), ...);
+        (ComponentVectors[Types::ClassName].reserve(capacity), ...);
     }
 
 private:
     void AddComponents(AEntity* entity)
     {
-        (ComponentVectors[Types::GetClassDataStatic().Name].push_back(
+        (ComponentVectors[Types::ClassName].push_back(
              entity->GetComponentOfType<Types>()),
          ...);
     }
 
     void ResizeComponents(size_t size)
     {
-        (ComponentVectors[Types::GetClassDataStatic().Name].resize(size), ...);
+        (ComponentVectors[Types::ClassName].resize(size), ...);
     }
 
     void RefreshComponents()
@@ -166,11 +166,11 @@ private:
             AEntity* entity = Entities[i];
             if (entity == nullptr)
             {
-                (void)std::initializer_list<int>{(ComponentVectors[Types::GetClassDataStatic().Name][i] = nullptr, 0)...}; 
+                (void)std::initializer_list<int>{(ComponentVectors[Types::ClassName][i] = nullptr, 0)...}; 
                 continue;
             }
 
-            (void)std::initializer_list<int>{(ComponentVectors[Types::GetClassDataStatic().Name][i] =
+            (void)std::initializer_list<int>{(ComponentVectors[Types::ClassName][i] =
                  entity->GetComponentOfType<Types>(), 0
              )...};
         }
@@ -178,14 +178,14 @@ private:
 
     void SwapComponents(size_t a, size_t b)
     {
-         (std::swap(ComponentVectors[Types::GetClassDataStatic().Name][a],
-                    ComponentVectors[Types::GetClassDataStatic().Name][b]),
+         (std::swap(ComponentVectors[Types::ClassName][a],
+                    ComponentVectors[Types::ClassName][b]),
           ...);
     }
 
     void PopComponents()
     {
-        (ComponentVectors[Types::GetClassDataStatic().Name].pop_back(), ...);
+        (ComponentVectors[Types::ClassName].pop_back(), ...);
     }
 };
 
@@ -441,7 +441,7 @@ struct AWorld
     template<typename T>
     T* NewObject_Internal()
     {
-        return NewObject_Internal<T>(T::GetClassDataStatic().Name);
+        return NewObject_Internal<T>(T::ClassName);
     }
 
     template<typename T>
@@ -680,7 +680,7 @@ struct AWorld
     template<typename T1, typename T2, typename... Types>
     void GetNamesOfComponents(std::vector<AName>& names)
     {
-        static AName tmpName = T1::GetClassDataStatic().Name;
+        static AName tmpName = T1::ClassName;
         names.push_back(tmpName);
 
         GetNamesOfComponents<T2, Types...>(names);
@@ -690,7 +690,7 @@ struct AWorld
     bool ShouldComponentsBlockRenderThread()
     {
         static bool tmp =
-            GetCDO<T>(T::GetClassDataStatic().Name)->_shouldBlockRenderThread;
+            GetCDO<T>(T::ClassName)->_shouldBlockRenderThread;
         return tmp;
     }
 
@@ -699,7 +699,7 @@ struct AWorld
     {
         static bool tmp = (std::is_const<T1>::value
                                ? false
-                               : GetCDO<T1>(T1::GetClassDataStatic().Name)
+                               : GetCDO<T1>(T1::ClassName)
                                      ->_shouldBlockRenderThread) ||
                           ShouldComponentsBlockRenderThread<T2, Types...>();
         return tmp;
@@ -940,7 +940,7 @@ void ASystemView<Types...>::RefreshPointers(AWorld* world, size_t capacity)
 
     Reserve(capacity);
 
-    const AName entityType = AEntity::GetClassDataStatic().Name;
+    const AName entityType = AEntity::ClassName;
     const AEntity* entities =
         static_cast<const AEntity*>(world->GetObjectsByNameRaw(entityType));
     for (const auto& entry : EntityIndexById)

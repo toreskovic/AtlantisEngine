@@ -57,6 +57,8 @@ def class_decl(node):
                 fields_data.append(res)
         # print(fields_data)
         current_string += """#define __DEF_CLASS_HELPER_L_{line}() \\
+    inline static const AName ClassName = AName("{class_name}"); \\
+    \\
     static AClassData& GetClassDataStatic() \\
     {{ \\
         static AClassData classData; \\
