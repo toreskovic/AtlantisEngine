@@ -105,6 +105,11 @@ namespace Atlantis
         {
             return AName();
         }
+
+        operator size_t() const
+        {
+            return Hash;
+        }
     };
 
     struct AResource

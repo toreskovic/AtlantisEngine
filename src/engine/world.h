@@ -70,13 +70,13 @@ struct ASystemView : public ISystemViewBase
 {
     std::vector<size_t> Indices;
     std::vector<AEntity*> Entities;
-    std::tuple<std::vector<Types*>...> ComponentVectors;
+    std::unordered_map<size_t, std::vector<void*>> ComponentVectors;
     std::unordered_map<size_t, size_t> EntityIndexById;
 
     template<typename C>
     std::vector<C*>& GetComponentVector()
     {
-        return std::get<std::vector<C*>>(ComponentVectors);
+        return *reinterpret_cast<std::vector<C*>*>(&ComponentVectors[C::GetClassDataStatic().Name]);
     }
 
     void AddEntity(AEntity* entity) override
@@ -96,7 +96,7 @@ struct ASystemView : public ISystemViewBase
         Entities.push_back(entity);
         Indices.push_back(index);
         EntityIndexById.emplace(uid, index);
-        AddComponents(entity, std::index_sequence_for<Types...>{});
+        AddComponents(entity);
     }
 
     void RemoveEntity(AEntity* entity) override
@@ -117,8 +117,7 @@ struct ASystemView : public ISystemViewBase
         if (index != last)
         {
             Entities[index] = Entities[last];
-            Indices[index] = Indices[last];
-            SwapComponents(index, last, std::index_sequence_for<Types...>{});
+            SwapComponents(index, last);
 
             AEntity* swappedEntity = Entities[index];
             if (swappedEntity != nullptr)
@@ -129,7 +128,7 @@ struct ASystemView : public ISystemViewBase
 
         Entities.pop_back();
         Indices.pop_back();
-        PopComponents(std::index_sequence_for<Types...>{});
+        PopComponents();
         EntityIndexById.erase(it);
     }
 
@@ -144,58 +143,49 @@ struct ASystemView : public ISystemViewBase
     {
         Entities.reserve(capacity);
         Indices.reserve(capacity);
-        (std::get<std::vector<Types*>>(ComponentVectors).reserve(capacity), ...);
+        (ComponentVectors[Types::GetClassDataStatic().Name].reserve(capacity), ...);
     }
 
 private:
-    template<size_t... Indices>
-    void AddComponents(AEntity* entity, std::index_sequence<Indices...>)
+    void AddComponents(AEntity* entity)
     {
-           (std::get<Indices>(ComponentVectors).push_back(
-               entity->GetComponentOfType<std::tuple_element_t<Indices, std::tuple<Types...>>>()),
+        (ComponentVectors[Types::GetClassDataStatic().Name].push_back(
+             entity->GetComponentOfType<Types>()),
          ...);
     }
 
-    template<size_t... Indices>
-    void ResizeComponents(size_t size, std::index_sequence<Indices...>)
+    void ResizeComponents(size_t size)
     {
-        (std::get<Indices>(ComponentVectors).resize(size), ...);
+        (ComponentVectors[Types::GetClassDataStatic().Name].resize(size), ...);
     }
 
-    template<size_t... Indices>
-    void RefreshComponents(std::index_sequence<Indices...>)
+    void RefreshComponents()
     {
         for (size_t i = 0; i < Entities.size(); ++i)
         {
             AEntity* entity = Entities[i];
             if (entity == nullptr)
             {
-                (void)std::initializer_list<int>{
-                    (std::get<Indices>(ComponentVectors)[i] = nullptr, 0)...
-                };
+                (void)std::initializer_list<int>{(ComponentVectors[Types::GetClassDataStatic().Name][i] = nullptr, 0)...}; 
                 continue;
             }
 
-            (void)std::initializer_list<int>{
-                (std::get<Indices>(ComponentVectors)[i] =
-                     entity->GetComponentOfType<std::tuple_element_t<Indices, std::tuple<Types...>>>(),
-                 0)...
-            };
+            (void)std::initializer_list<int>{(ComponentVectors[Types::GetClassDataStatic().Name][i] =
+                 entity->GetComponentOfType<Types>(), 0
+             )...};
         }
     }
 
-    template<size_t... Indices>
-    void SwapComponents(size_t a, size_t b, std::index_sequence<Indices...>)
+    void SwapComponents(size_t a, size_t b)
     {
-        (std::swap(std::get<Indices>(ComponentVectors)[a],
-                   std::get<Indices>(ComponentVectors)[b]),
-         ...);
+         (std::swap(ComponentVectors[Types::GetClassDataStatic().Name][a],
+                    ComponentVectors[Types::GetClassDataStatic().Name][b]),
+          ...);
     }
 
-    template<size_t... Indices>
-    void PopComponents(std::index_sequence<Indices...>)
+    void PopComponents()
     {
-        (std::get<Indices>(ComponentVectors).pop_back(), ...);
+        (ComponentVectors[Types::GetClassDataStatic().Name].pop_back(), ...);
     }
 };
 
@@ -601,6 +591,11 @@ struct AWorld
     void RegisterSystemView()
     {
         ComponentBitset mask = GetComponentMaskForComponents<Types...>();
+        if (SystemViews.contains(mask))
+        {
+            return;
+        }
+
         auto view = std::make_unique<ASystemView<Types...>>();
         ASystemView<Types...>* viewPtr = view.get();
         viewPtr->Reserve(AllocatorHelpers["AEntity"].Limit);
@@ -955,8 +950,8 @@ void ASystemView<Types...>::RefreshPointers(AWorld* world, size_t capacity)
         Entities[index] = const_cast<AEntity*>(&entities[uid]);
     }
 
-    ResizeComponents(Entities.size(), std::index_sequence_for<Types...>{});
-    RefreshComponents(std::index_sequence_for<Types...>{});
+    ResizeComponents(Entities.size());
+    RefreshComponents();
 }
 }
 
