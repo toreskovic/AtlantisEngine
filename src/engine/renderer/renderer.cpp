@@ -252,6 +252,8 @@ void main() {
     // use the pivot point to rotate around
     vec2 position = inPosition * vec2(width, height) * instanceZoom;
     position -= instancePivot * vec2(width, height) * instanceZoom;
+    position *= cameraZoom;
+    position = ceil(position); // avoid subpixel artifacts
     position = vec2(position.x * cos(instanceRotation * 3.1415 / 180.0) - position.y * sin(instanceRotation * 3.1415 / 180.0),
                     position.x * sin(instanceRotation * 3.1415 / 180.0) + position.y * cos(instanceRotation * 3.1415 / 180.0));
 
