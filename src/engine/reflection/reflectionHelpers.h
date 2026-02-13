@@ -7,9 +7,9 @@
 #include "nlohmann/json.hpp"
 #include "raylib.h"
 
-#define __DEF_CLASS_HELPER_1(line) __DEF_CLASS_HELPER_L_##line()
-#define __DEF_CLASS_HELPER_2(line) __DEF_CLASS_HELPER_1(line)
-#define DEF_CLASS() __DEF_CLASS_HELPER_2(__LINE__)
+#define __DEF_CLASS_HELPER_1(line, meta) __DEF_CLASS_HELPER_L_##line(nlohmann::json::parse(meta))
+#define __DEF_CLASS_HELPER_2(line, ...) __DEF_CLASS_HELPER_1(line, #__VA_ARGS__)
+#define DEF_CLASS(...) __DEF_CLASS_HELPER_2(__LINE__, {__VA_ARGS__})
 
 #define DEF_PROPERTY()
 
@@ -218,6 +218,8 @@ namespace Atlantis
         std::vector<APropertyData> Properties;
         std::vector<AMethodData> Methods;
         size_t Size;
+
+        nlohmann::json MetaData;
 
         bool IsValid()
         {

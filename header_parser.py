@@ -39,6 +39,16 @@ def class_decl(node):
     global all_type_names
     current_class_name = node.spelling
 
+    # get parent class if any
+    parent_class = None
+    for c in node.get_children():
+        if c.kind == clang.cindex.CursorKind.CXX_BASE_SPECIFIER:
+            parent_class = c.type.spelling
+            break
+
+    if not parent_class:
+        parent_class = "void"
+
     if len(current_macros) > 0 and current_macros[0]["type"] == "class":
         if current_macros[0]["class_name"] != node.spelling:
             return
@@ -56,8 +66,9 @@ def class_decl(node):
             if res:
                 fields_data.append(res)
         # print(fields_data)
-        current_string += """#define __DEF_CLASS_HELPER_L_{line}() \\
+        current_string += """#define __DEF_CLASS_HELPER_L_{line}(meta) \\
     inline static const AName ClassName = AName("{class_name}"); \\
+    typedef {parent_class} Super;  \\
     \\
     static AClassData& GetClassDataStatic() \\
     {{ \\
@@ -68,6 +79,8 @@ def class_decl(node):
             \\
         classData.Name = "{class_name}"; \\
         classData.Size = sizeof({class_name}); \\
+            \\
+        classData.MetaData = meta; \\
             \\
         {fields} \\
         return classData; \\
@@ -83,9 +96,11 @@ def class_decl(node):
         classData.Name = "{class_name}"; \\
         classData.Size = sizeof({class_name}); \\
             \\
+        classData.MetaData = meta; \\
+            \\
         {fields} \\
         return classData; \\
-    }}\n""".format(line=macro_line, class_name=node.spelling, fields=" \\\n\t\t".join(fields_data))
+    }}\n""".format(line=macro_line, class_name=node.spelling, parent_class=parent_class, fields=" \\\n\t\t".join(fields_data))
         
         all_type_names.append(node.spelling)
     pass
