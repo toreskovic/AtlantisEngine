@@ -6,7 +6,7 @@ include(FetchContent)
 FetchContent_Declare(
   box2d
   GIT_REPOSITORY "https://github.com/erincatto/box2d"
-  GIT_TAG        "v3.0.0"
+  GIT_TAG        "v3.1.1"
 )
 FetchContent_GetProperties(box2d)
 if (NOT box2d_POPULATED) # Have we downloaded yet?

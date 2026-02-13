@@ -51,7 +51,7 @@ void SPhysics::Process(AWorld* world)
                 b2ShapeDef dynamicCircleDef = b2DefaultShapeDef();
                 dynamicCircleDef.filter.groupIndex = 1;
                 dynamicCircleDef.density = body->density;
-                dynamicCircleDef.friction = body->friction;
+                // dynamicCircleDef.friction = body->friction;
 
                 b2Circle dynamicCircle;
                 dynamicCircle.center = b2Vec2{0.0f, 0.0f};
