@@ -344,6 +344,8 @@ struct AWorld
             DeadObjects[name].pop_back();
 
             T* obj = static_cast<T*>(objPtr.Get(name, false));
+            memcpy((void*)obj, (void*)CDO, classData.Size);
+
             obj->_isAlive = true;
             OnCreated<T>(obj, false);
 
