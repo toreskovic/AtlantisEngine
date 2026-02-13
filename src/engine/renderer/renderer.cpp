@@ -31,7 +31,7 @@ void CRenderable::OnAddedToEntity(AEntity* entity)
     proxiesHigh[_uid].zoom = scaleX;
     World->MarkRenderProxyDirty(_uid);
 
-    AComponent::OnAddedToEntity(entity);
+    Super::OnAddedToEntity(entity);
 }
 
 void CRenderable::OnRemovedFromEntity(AEntity* entity)
@@ -42,7 +42,7 @@ void CRenderable::OnRemovedFromEntity(AEntity* entity)
         World->RemoveRenderProxy(_uid);
     }
 
-    AComponent::OnRemovedFromEntity(entity);
+    Super::OnRemovedFromEntity(entity);
 }
 
 void CRenderable::OnCreated(bool firstTime)

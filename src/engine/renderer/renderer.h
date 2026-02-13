@@ -122,7 +122,7 @@ namespace Atlantis
 
     struct CCamera : public AComponent
     {
-        DEF_CLASS();
+        DEF_CLASS("RegisterCount": 64);
 
         DEF_PROPERTY();
         float Zoom = 1.0f;

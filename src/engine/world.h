@@ -72,6 +72,7 @@ struct ASystemView : public ISystemViewBase
     std::vector<AEntity*> Entities;
     std::unordered_map<size_t, std::vector<void*>> ComponentVectors;
     std::unordered_map<size_t, size_t> EntityIndexById;
+    std::vector<AName> ComponentTypeNames = { Types::ClassName... };
 
     template<typename C>
     std::vector<C*>& GetComponentVector()
@@ -262,12 +263,19 @@ struct AWorld
         CDOs.emplace(data.Name, std::make_shared<AObject>(*obj));
     }*/
 
-    template<typename T, size_t Amount, size_t Increment = Amount>
-    void RegisterDefault(AName name = AName::None())
+    template<typename T>
+    void RegisterDefault(AName name, size_t Amount, size_t Increment = 0)
     {
+        if (Increment == 0)
+        {
+            Increment = Amount;
+        }
+
         T obj;
         AClassData data = obj.GetClassData();
         AName objName = name == AName::None() ? data.Name : name;
+
+        std::cout << "Preallocating memory for " << Amount << " instances of type " << objName.GetName() << std::endl;
 
         CData.insert_or_assign(objName, data);
 
@@ -302,8 +310,17 @@ struct AWorld
     template<typename T>
     void RegisterDefault(AName name = AName::None())
     {
-        // RegisterDefault<T, 10000, 10000>(name);
-        RegisterDefault<T, 2097152, 2097152>(name);
+        AClassData data = T::GetClassDataStatic();
+        if (data.MetaData.contains("RegisterCount"))
+        {
+            size_t count = data.MetaData["RegisterCount"];
+            RegisterDefault<T>(name, count);
+        }
+        else
+        {
+            // RegisterDefault<T, 10000, 10000>(name);
+            RegisterDefault<T>(name, 2097152);
+        }
     }
 
     template<typename T>
@@ -598,7 +615,11 @@ struct AWorld
 
         auto view = std::make_unique<ASystemView<Types...>>();
         ASystemView<Types...>* viewPtr = view.get();
-        viewPtr->Reserve(AllocatorHelpers["AEntity"].Limit);
+        // viewPtr->Reserve(AllocatorHelpers["AEntity"].Limit);
+
+        size_t min_component_count = std::min({AllocatorHelpers[Types::ClassName].Limit...});
+        viewPtr->Reserve(min_component_count);
+
         SystemViews[mask] = std::move(view);
 
         const std::vector<AEntity*> entities = GetEntitiesWithComponents(mask);
@@ -938,6 +959,15 @@ void ASystemView<Types...>::RefreshPointers(AWorld* world, size_t capacity)
         return;
     }
 
+    for (const AName& componentName : ComponentTypeNames)
+    {
+        size_t componentLimit = world->AllocatorHelpers[componentName].Limit;
+        if (componentLimit < capacity)
+        {
+            capacity = componentLimit;
+        }
+    }
+
     Reserve(capacity);
 
     const AName entityType = AEntity::ClassName;
@@ -950,7 +980,7 @@ void ASystemView<Types...>::RefreshPointers(AWorld* world, size_t capacity)
         Entities[index] = const_cast<AEntity*>(&entities[uid]);
     }
 
-    ResizeComponents(Entities.size());
+    // ResizeComponents(Entities.size());
     RefreshComponents();
 }
 }
