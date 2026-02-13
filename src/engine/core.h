@@ -165,7 +165,7 @@ struct AEntity : public AObject
         static uint32_t shift = 0;
         if (staticIndex == std::numeric_limits<uint32_t>::max())
         {
-            staticIndex = GetStaticComponentIndex(T::GetClassDataStatic().Name);
+            staticIndex = GetStaticComponentIndex(T::ClassName);
             shift = MAX_COMPONENTS - staticIndex;
         }
 
